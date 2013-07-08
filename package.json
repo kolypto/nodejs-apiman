@@ -1,0 +1,35 @@
+{
+  "name": "apiman",
+  "description": "API methods manager",
+  "version": "0.0.1",
+  
+  "author": "kolypto <kolypto@gmail.com>",
+  "license": "MIT",
+  "maintainers": [
+    "kolypto <kolypto@gmail.com>"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:kolypto/nodejs-apiman.git"
+  },
+  
+  "main": "./lib/index",
+  "keywords": [
+    "api",
+    "rest"
+  ],
+  
+  "dependencies": {
+    "underscore": "1.5.x"
+  },
+  "devDependencies": {
+    "vows": "0.7.x"
+  },
+  "engines": {
+    "node": ">= 0.9.0"
+  },
+  
+  "scripts": {
+    "test": "vows tests/*-test.js tests/**/*-test.js --spec"
+  }
+}
