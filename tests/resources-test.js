@@ -16,7 +16,7 @@ vows.describe('ApiMan')
 
                 // A root method that lists resources
                 root.method('list', function(req, res){
-                    res.send(undefined, Object.keys(req.resource.resources));
+                    res.send(undefined, Object.keys(root.resources));
                 });
 
                 // A root method that dumps the Request object
@@ -80,12 +80,12 @@ vows.describe('ApiMan')
 
                 // Subresource with params
                 var user_devices = user.resource(new RegExp('^/device/(\\w+)'))
-                    .param(1, 'device', function(req, res, next, val){
+                    .param(1, function(req, res, next, val){
                         req.params['device'] = val.toUpperCase();
                         next();
                     });
                 var user_device_commands = user_devices.resource(new RegExp('^/command/(\\w+)'))
-                    .param(1, 'command', function(req, res, next, val){
+                    .param(1, function(req, res, next, val){
                         if (['start', 'stop'].indexOf(val) == -1)
                             next('unknown command');
                         else {
@@ -175,7 +175,7 @@ vows.describe('ApiMan')
                 // Exec top-level method
                 'list /': {
                     topic: function(root){
-                        root.exec('', 'list', {}, this.callback);
+                        root.request('', 'list', {}, this.callback);
                     },
                     'returns list of resources': function(err, result){
                         assert.ok(!err);
@@ -185,7 +185,7 @@ vows.describe('ApiMan')
                 // Check the `request` param fields
                 'req /': {
                     topic: function(root){
-                        root.exec('', 'req', {a:1}, this.callback);
+                        root.request('', 'req', {a:1}, this.callback);
                     },
                     'returns a valid request object': function(err, req){
                         assert.ok(!err);
@@ -193,15 +193,12 @@ vows.describe('ApiMan')
                         assert.deepEqual(req.path_arr, []);
                         assert.equal(req.verb, 'req');
                         assert.deepEqual(req.args, {a:1});
-                        assert.deepEqual(Object.keys(req.target.resources), ['/user']); // `target` property
-                        assert.deepEqual(Object.keys(req.resource.resources), ['/user']); // `resource` property
-                        assert.deepEqual(req.method.verbs, ['req']); // `method` property
                     }
                 },
                 // Invoking a callback
                 'set /user': {
                     topic: function(root){
-                        root.exec('/user', 'set', {a:1}, this.callback);
+                        root.request('/user', 'set', {a:1}, this.callback);
                     },
                     'saved ok': function(err, result){
                         assert.ok(!err);
@@ -212,7 +209,7 @@ vows.describe('ApiMan')
                 'get /user,': {
                     'uid not found': {
                         topic: function(root){
-                            root.exec('/user', 'get', {uid: 99}, this.callback);
+                            root.request('/user', 'get', {uid: 99}, this.callback);
                         },
                         'err: not found': function(err, result){
                             assert.equal(err.message, 'uid not found');
@@ -221,7 +218,7 @@ vows.describe('ApiMan')
                     },
                     'uid found': {
                         topic: function(root){
-                            root.exec('/user', 'get', {uid: 10}, this.callback);
+                            root.request('/user', 'get', {uid: 10}, this.callback);
                         },
                         'returns the user': function(err, result){
                             assert.ok(!err);
@@ -232,7 +229,7 @@ vows.describe('ApiMan')
                 // Another method here
                 'del /user': {
                     topic: function(root){
-                        root.exec('/user', 'del', {uid: 10}, this.callback);
+                        root.request('/user', 'del', {uid: 10}, this.callback);
                     },
                     'user deleted': function(err, result){
                         assert.ok(!err);
@@ -244,7 +241,7 @@ vows.describe('ApiMan')
                     // 1st middleware can deny the access
                     'first: access denied': {
                         topic: function(root){
-                            root.exec('/user', 'mw', {uid: 11, name: 'wrong'}, this.callback);
+                            root.request('/user', 'mw', {uid: 11, name: 'wrong'}, this.callback);
                         },
                         'middleware rejected': function(err, result){
                             assert.equal(err, 'access denied');
@@ -254,7 +251,7 @@ vows.describe('ApiMan')
                     // 2nd middleware provides more checks
                     'second: invalid username': {
                         topic: function(root){
-                            root.exec('/user', 'mw', {uid: 10, name: 'wrong'}, this.callback);
+                            root.request('/user', 'mw', {uid: 10, name: 'wrong'}, this.callback);
                         },
                         'middleware rejected': function(err, result){
                             assert.equal(err, 'invalid username');
@@ -264,7 +261,7 @@ vows.describe('ApiMan')
                     // All checks fine - the method works ok
                     'the method: ok': {
                         topic: function(root){
-                            root.exec('/user', 'mw', {uid: 10, name: 'user'}, this.callback);
+                            root.request('/user', 'mw', {uid: 10, name: 'user'}, this.callback);
                         },
                         'middleware allowed': function(err, result){
                             assert.ok(!err);
@@ -275,7 +272,7 @@ vows.describe('ApiMan')
                 // Try to invoke some method on an empty resource
                 '/empty': {
                     topic: function(root){
-                        return root.exec('/empty', '', {}, this.callback) || 'not found';
+                        return root.request('/empty', '', {}, this.callback) || 'not found';
                     },
                     'method not found': function(method){
                         assert.equal(method, 'not found');
@@ -285,7 +282,7 @@ vows.describe('ApiMan')
                 '/user/profile': {
                     'req()': {
                         topic: function(root){
-                            root.exec('/user/profile', 'req', {a:1}, this.callback);
+                            root.request('/user/profile', 'req', {a:1}, this.callback);
                         },
                         'returns a valid request object': function(err, req){
                             assert.ok(!err);
@@ -293,9 +290,6 @@ vows.describe('ApiMan')
                             assert.deepEqual(req.path_arr, ['/user', '/profile']); // path array
                             assert.equal(req.verb, 'req'); // verb ok
                             assert.deepEqual(req.args, {a:1});
-                            assert.deepEqual(Object.keys(req.target.resources), ['/user']);
-                            assert.deepEqual(Object.keys(req.resource.resources), []);
-                            assert.deepEqual(req.method.verbs, ['req']);
                         }
                     }
                 },
@@ -304,7 +298,7 @@ vows.describe('ApiMan')
                     // Correct call
                     ':device=mixer, :command=start': {
                         topic: function(root){
-                            root.exec('/user/device/mixer/command/start', 'exec', {a:1}, this.callback);
+                            root.request('/user/device/mixer/command/start', 'exec', {a:1}, this.callback);
                         },
                         'request ok': function(err, req){
                             assert.ok(!err);
@@ -318,7 +312,7 @@ vows.describe('ApiMan')
                     // Parameter function produces an error
                     ':device=mixer, :command=UNKNOWN': {
                         topic: function(root){
-                            root.exec('/user/device/mixer/command/UNKNOWN', 'exec', {a:1}, this.callback);
+                            root.request('/user/device/mixer/command/UNKNOWN', 'exec', {a:1}, this.callback);
                         },
                         'request ok': function(err, req){
                             assert.equal(err, 'unknown command');
@@ -367,7 +361,7 @@ vows.describe('ApiMan')
             // module was merged
             'call user:ok': {
                 topic: function(root){
-                    root.exec('/user', 'ok', {}, this.callback);
+                    root.request('/user', 'ok', {}, this.callback);
                 },
                 'called ok': function(err, result){
                     assert.ok(!err);
@@ -377,7 +371,7 @@ vows.describe('ApiMan')
             // extension was merged
             'call user:hello': {
                 topic: function(root){
-                    root.exec('/user', 'hello', {}, this.callback);
+                    root.request('/user', 'hello', {}, this.callback);
                 },
                 'called ok': function(err, result){
                     assert.ok(!err);
@@ -387,7 +381,7 @@ vows.describe('ApiMan')
             // second resource from the module was merged
             'call device:ok': {
                 topic: function(root){
-                    root.exec('/device', 'ok', {}, this.callback);
+                    root.request('/device', 'ok', {}, this.callback);
                 },
                 'called ok': function(err, result){
                     assert.ok(!err);
