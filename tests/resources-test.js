@@ -329,4 +329,71 @@ vows.describe('ApiMan')
             }
         }
     })
+    .addBatch({
+        'merging resources': {
+            topic: function(){
+                var root = new apiman.Root;
+
+                // A module designed to extend the root
+                var module = new apiman.Root;
+                var user = module.resource('/user');
+                user.method('ok', function(req, res){ res.ok('ok user'); });
+
+                var device = module.resource('/device');
+                device.method('ok', function(req, res){ res.ok('ok device'); });
+
+                // An extension that merges everything recursively
+                var extension = new apiman.Root;
+                extension.resource('/user')
+                    .method('hello', function(req, res){ res.ok('hello user') });
+
+                root.merge(module, extension);
+                return root;
+            },
+            // Check that all methods are there
+            'method lookup': {
+                topic: function(root){
+                    return [
+                        root.which('/user', 'ok'),
+                        root.which('/user', 'hello'),
+                        root.which('/device', 'ok')
+                    ];
+                },
+                'found': function(methods){
+                    assert.notEqual(methods[0], undefined);
+                    assert.notEqual(methods[1], undefined);
+                }
+            },
+            // module was merged
+            'call user:ok': {
+                topic: function(root){
+                    root.exec('/user', 'ok', {}, this.callback);
+                },
+                'called ok': function(err, result){
+                    assert.ok(!err);
+                    assert.equal(result, 'ok user');
+                }
+            },
+            // extension was merged
+            'call user:hello': {
+                topic: function(root){
+                    root.exec('/user', 'hello', {}, this.callback);
+                },
+                'called ok': function(err, result){
+                    assert.ok(!err);
+                    assert.equal(result, 'hello user');
+                }
+            },
+            // second resource from the module was merged
+            'call device:ok': {
+                topic: function(root){
+                    root.exec('/device', 'ok', {}, this.callback);
+                },
+                'called ok': function(err, result){
+                    assert.ok(!err);
+                    assert.equal(result, 'ok device');
+                }
+            }
+        }
+    })
     .export(module);
