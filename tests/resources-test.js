@@ -74,6 +74,9 @@ vows.describe('ApiMan')
                     else
                         res.ok({deleted: true});
                 });
+                user_profile.method('req', function(req, res){
+                    res.ok(req);
+                });
 
                 // Subresource with params
                 var user_device_commands = user.resource('/device/:device/command');
@@ -120,7 +123,7 @@ vows.describe('ApiMan')
                     },
                     'found': function(method){
                         assert.ok(method);
-                        assert.deepEqual(method.verbs, ['get', 'set']);
+                        assert.deepEqual(method.verbs, ['get', 'del']);
                         assert.deepEqual(method.resource.fullPath, '/user/profile');
                     }
                 },
@@ -163,6 +166,7 @@ vows.describe('ApiMan')
                     'returns a valid request object': function(err, req){
                         assert.ok(!err);
                         assert.equal(req.path, '');
+                        assert.deepEqual(req.epath, []);
                         assert.equal(req.verb, 'req');
                         assert.deepEqual(req.args, {a:1});
                         assert.deepEqual(Object.keys(req.root.resources), ['/user']);
@@ -243,6 +247,23 @@ vows.describe('ApiMan')
                     },
                     'method not found': function(method){
                         assert.equal(method, 'not found');
+                    }
+                },
+                '/user/profile': {
+                    'req()': {
+                        topic: function(root){
+                            root.exec('/user/profile', 'req', {a:1}, this.callback);
+                        },
+                        'returns a valid request object': function(err, req){
+                            assert.ok(!err);
+                            assert.equal(req.path, '/user/profile');
+                            assert.deepEqual(req.epath, ['/user', '/profile']);
+                            assert.equal(req.verb, 'req');
+                            assert.deepEqual(req.args, {a:1});
+                            assert.deepEqual(Object.keys(req.root.resources), ['/user']);
+                            assert.deepEqual(Object.keys(req.resource.resources), []);
+                            assert.deepEqual(req.method.verbs, ['req']);
+                        }
                     }
                 },
                 '/device/:device/command': {
