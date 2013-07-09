@@ -1,6 +1,6 @@
 {
   "name": "apiman",
-  "description": "API methods manager",
+  "description": "Abstract API methods manager",
   "version": "0.0.1",
   
   "author": "kolypto <kolypto@gmail.com>",
@@ -16,11 +16,13 @@
   "main": "./lib/index",
   "keywords": [
     "api",
-    "rest"
+    "rest",
+    "express"
   ],
   
   "dependencies": {
-    "underscore": "1.5.x"
+    "underscore": "1.5.x",
+    "async": "0.2.9"
   },
   "devDependencies": {
     "vows": "0.7.x"
