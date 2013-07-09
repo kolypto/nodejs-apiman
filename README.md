@@ -195,11 +195,14 @@ Executing methods
 -----------------
 
 To execute a method of your API root, use the 
-`Resource.request(path, verb, args, callback)` method:
+`Resource.request(path, verb[, args[, req]], callback)` method:
 
 * `path` is the path to some resource within the tree
 * `verb` is the name of the method to execute
-* `args` is the arguments object for the method
+* `args` is the arguments object for the method. Optional.
+* `req` is an object with extended request fields. Optional.
+    Useful to populate additional `Request` fields at the invocation time: say,
+    user session.
 * `callback` accepts the method output: `function(err, result)`.
 
 `Resource.request()` does the following:

@@ -175,7 +175,7 @@ vows.describe('ApiMan')
                 // Exec top-level method
                 'list /': {
                     topic: function(root){
-                        root.request('', 'list', {}, this.callback);
+                        root.request('', 'list', this.callback);
                     },
                     'returns list of resources': function(err, result){
                         assert.ok(!err);
@@ -272,7 +272,7 @@ vows.describe('ApiMan')
                 // Try to invoke some method on an empty resource
                 '/empty': {
                     topic: function(root){
-                        return root.request('/empty', '', {}, this.callback) || 'not found';
+                        return root.request('/empty', '', this.callback) || 'not found';
                     },
                     'method not found': function(method){
                         assert.equal(method, 'not found');
@@ -361,7 +361,7 @@ vows.describe('ApiMan')
             // module was merged
             'call user:ok': {
                 topic: function(root){
-                    root.request('/user', 'ok', {}, this.callback);
+                    root.request('/user', 'ok', this.callback);
                 },
                 'called ok': function(err, result){
                     assert.ok(!err);
@@ -371,7 +371,7 @@ vows.describe('ApiMan')
             // extension was merged
             'call user:hello': {
                 topic: function(root){
-                    root.request('/user', 'hello', {}, this.callback);
+                    root.request('/user', 'hello', this.callback);
                 },
                 'called ok': function(err, result){
                     assert.ok(!err);
@@ -381,7 +381,7 @@ vows.describe('ApiMan')
             // second resource from the module was merged
             'call device:ok': {
                 topic: function(root){
-                    root.request('/device', 'ok', {}, this.callback);
+                    root.request('/device', 'ok', this.callback);
                 },
                 'called ok': function(err, result){
                     assert.ok(!err);
