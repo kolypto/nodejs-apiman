@@ -101,6 +101,7 @@ vows.describe('ApiMan')
                 return root;
             },
             'lookup': {
+                // Lookup methods in the root Resource: path=''
                 'root methods': {
                     topic: function(root){
                         return [
@@ -109,11 +110,14 @@ vows.describe('ApiMan')
                         ];
                     },
                     'found': function(list){
+                        // method 'list'
                         assert.ok(list[0]);
                         assert.deepEqual(list[0].verbs, ['list']);
+                        // method not found
                         assert.equal(list[1], undefined);
                     }
                 },
+                // Lookup methods in a sub-resource
                 'level 1': {
                     topic: function(root){
                         return [
@@ -122,34 +126,43 @@ vows.describe('ApiMan')
                         ];
                     },
                     'found': function(list){
+                        // Methods found
                         assert.ok(list[0]);
                         assert.ok(list[1]);
+                        // Methods found correctly
                         assert.deepEqual(list[0].verbs, ['set']);
                         assert.deepEqual(list[1].verbs, ['get', 'del']);
                     }
                 },
+                // Lookup methods in a sub-sub-resource
                 'level 2': {
                     topic: function(root){
                         return root.which('/user/profile', 'get') || null;
                     },
                     'found': function(method){
+                        // found correctly
                         assert.ok(method);
                         assert.deepEqual(method.verbs, ['get', 'del']);
                     }
                 },
+                // Lookup methods with params (given as regexp)
                 'level 4 with params': {
                     topic: function(root){
                         return root.which('/user/device/cellphone/command/call', 'exec') || null;
                     },
                     'found': function(method){
+                        // Found ok
                         assert.notEqual(method, null);
                         assert.deepEqual(method.verbs, ['exec']);
                     }
                 },
+                // Lookup methods that don't exist
                 'missing': {
                     topic: function(root){
                         return [
+                            // Lookup a missing resource
                             root.which('/user/don-t-exist', 'get'),
+                            // Lookup a missing verb
                             root.which('/user', 'don-t-exist')
                         ];
                     },
@@ -159,6 +172,7 @@ vows.describe('ApiMan')
                 }
             },
             'request:': {
+                // Exec top-level method
                 'list /': {
                     topic: function(root){
                         root.exec('', 'list', {}, this.callback);
@@ -168,6 +182,7 @@ vows.describe('ApiMan')
                         assert.deepEqual(result, ['/user']);
                     }
                 },
+                // Check the `request` param fields
                 'req /': {
                     topic: function(root){
                         root.exec('', 'req', {a:1}, this.callback);
@@ -178,11 +193,12 @@ vows.describe('ApiMan')
                         assert.deepEqual(req.path_arr, []);
                         assert.equal(req.verb, 'req');
                         assert.deepEqual(req.args, {a:1});
-                        assert.deepEqual(Object.keys(req.target.resources), ['/user']);
-                        assert.deepEqual(Object.keys(req.resource.resources), ['/user']);
-                        assert.deepEqual(req.method.verbs, ['req']);
+                        assert.deepEqual(Object.keys(req.target.resources), ['/user']); // `target` property
+                        assert.deepEqual(Object.keys(req.resource.resources), ['/user']); // `resource` property
+                        assert.deepEqual(req.method.verbs, ['req']); // `method` property
                     }
                 },
+                // Invoking a callback
                 'set /user': {
                     topic: function(root){
                         root.exec('/user', 'set', {a:1}, this.callback);
@@ -192,6 +208,7 @@ vows.describe('ApiMan')
                         assert.deepEqual(result, {ok: true});
                     }
                 },
+                // Invoking a callback with error
                 'get /user,': {
                     'uid not found': {
                         topic: function(root){
@@ -212,6 +229,7 @@ vows.describe('ApiMan')
                         }
                     }
                 },
+                // Another method here
                 'del /user': {
                     topic: function(root){
                         root.exec('/user', 'del', {uid: 10}, this.callback);
@@ -221,7 +239,9 @@ vows.describe('ApiMan')
                         assert.deepEqual(result, {ok: true});
                     }
                 },
+                // Middleware that produces errors
                 'middleware': {
+                    // 1st middleware can deny the access
                     'first: access denied': {
                         topic: function(root){
                             root.exec('/user', 'mw', {uid: 11, name: 'wrong'}, this.callback);
@@ -231,6 +251,7 @@ vows.describe('ApiMan')
                             assert.equal(result, undefined);
                         }
                     },
+                    // 2nd middleware provides more checks
                     'second: invalid username': {
                         topic: function(root){
                             root.exec('/user', 'mw', {uid: 10, name: 'wrong'}, this.callback);
@@ -240,7 +261,8 @@ vows.describe('ApiMan')
                             assert.equal(result, undefined);
                         }
                     },
-                    'third: all ok': {
+                    // All checks fine - the method works ok
+                    'the method: ok': {
                         topic: function(root){
                             root.exec('/user', 'mw', {uid: 10, name: 'user'}, this.callback);
                         },
@@ -250,6 +272,7 @@ vows.describe('ApiMan')
                         }
                     }
                 },
+                // Try to invoke some method on an empty resource
                 '/empty': {
                     topic: function(root){
                         return root.exec('/empty', '', {}, this.callback) || 'not found';
@@ -258,6 +281,7 @@ vows.describe('ApiMan')
                         assert.equal(method, 'not found');
                     }
                 },
+                // Check the `request` object on a sub-resource
                 '/user/profile': {
                     'req()': {
                         topic: function(root){
@@ -265,9 +289,9 @@ vows.describe('ApiMan')
                         },
                         'returns a valid request object': function(err, req){
                             assert.ok(!err);
-                            assert.equal(req.path, '/user/profile');
-                            assert.deepEqual(req.path_arr, ['/user', '/profile']);
-                            assert.equal(req.verb, 'req');
+                            assert.equal(req.path, '/user/profile'); // path
+                            assert.deepEqual(req.path_arr, ['/user', '/profile']); // path array
+                            assert.equal(req.verb, 'req'); // verb ok
                             assert.deepEqual(req.args, {a:1});
                             assert.deepEqual(Object.keys(req.target.resources), ['/user']);
                             assert.deepEqual(Object.keys(req.resource.resources), []);
@@ -275,7 +299,9 @@ vows.describe('ApiMan')
                         }
                     }
                 },
+                // Check parameters
                 '/user/device/:device/command/:command': {
+                    // Correct call
                     ':device=mixer, :command=start': {
                         topic: function(root){
                             root.exec('/user/device/mixer/command/start', 'exec', {a:1}, this.callback);
@@ -289,6 +315,7 @@ vows.describe('ApiMan')
                             assert.deepEqual(req.params, { device: 'MIXER', command: 'start' });
                         }
                     },
+                    // Parameter function produces an error
                     ':device=mixer, :command=UNKNOWN': {
                         topic: function(root){
                             root.exec('/user/device/mixer/command/UNKNOWN', 'exec', {a:1}, this.callback);
