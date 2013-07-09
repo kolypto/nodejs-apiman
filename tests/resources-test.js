@@ -79,10 +79,23 @@ vows.describe('ApiMan')
                 });
 
                 // Subresource with params
-                var user_device_commands = user.resource('/device/:device/command');
-    //            user_device_commands.param(':device', function(req, res, next, id){}); // TODO: params
-                user_device_commands.method('do', function(req, res){
-                    res.ok({ params: req.params, args: req.args });
+                var user_devices = user.resource(new RegExp('^/device/(\\w+)'))
+                    .param(1, 'device', function(req, res, next, val){
+                        req.params['device'] = val.toUpperCase();
+                        next();
+                    });
+                var user_device_commands = user_devices.resource(new RegExp('^/command/(\\w+)'))
+                    .param(1, 'command', function(req, res, next, val){
+                        if (['start', 'stop'].indexOf(val) == -1)
+                            next('unknown command');
+                        else {
+                            req.params['command'] = val;
+                            next();
+                        }
+                    });
+
+                user_device_commands.method('exec', function(req, res){
+                    res.ok(req);
                 });
 
                 return root;
@@ -112,9 +125,7 @@ vows.describe('ApiMan')
                         assert.ok(list[0]);
                         assert.ok(list[1]);
                         assert.deepEqual(list[0].verbs, ['set']);
-                        assert.deepEqual(list[0].resource.fullPath, '/user');
                         assert.deepEqual(list[1].verbs, ['get', 'del']);
-                        assert.deepEqual(list[1].resource.fullPath, '/user');
                     }
                 },
                 'level 2': {
@@ -124,17 +135,15 @@ vows.describe('ApiMan')
                     'found': function(method){
                         assert.ok(method);
                         assert.deepEqual(method.verbs, ['get', 'del']);
-                        assert.deepEqual(method.resource.fullPath, '/user/profile');
                     }
                 },
                 'level 4 with params': {
                     topic: function(root){
-                        return root.which('/user/device/cellphone/command', 'get') || null;
+                        return root.which('/user/device/cellphone/command/call', 'exec') || null;
                     },
                     'found': function(method){
-                        assert.ok(method == null); // TODO: params support
-//                        assert.deepEqual(method.verbs, ['get', 'set']);
-//                        assert.deepEqual(method.resource.fullPath, '/user/profile');
+                        assert.notEqual(method, null);
+                        assert.deepEqual(method.verbs, ['exec']);
                     }
                 },
                 'missing': {
@@ -166,10 +175,10 @@ vows.describe('ApiMan')
                     'returns a valid request object': function(err, req){
                         assert.ok(!err);
                         assert.equal(req.path, '');
-                        assert.deepEqual(req.epath, []);
+                        assert.deepEqual(req.path_arr, []);
                         assert.equal(req.verb, 'req');
                         assert.deepEqual(req.args, {a:1});
-                        assert.deepEqual(Object.keys(req.root.resources), ['/user']);
+                        assert.deepEqual(Object.keys(req.target.resources), ['/user']);
                         assert.deepEqual(Object.keys(req.resource.resources), ['/user']);
                         assert.deepEqual(req.method.verbs, ['req']);
                     }
@@ -257,17 +266,38 @@ vows.describe('ApiMan')
                         'returns a valid request object': function(err, req){
                             assert.ok(!err);
                             assert.equal(req.path, '/user/profile');
-                            assert.deepEqual(req.epath, ['/user', '/profile']);
+                            assert.deepEqual(req.path_arr, ['/user', '/profile']);
                             assert.equal(req.verb, 'req');
                             assert.deepEqual(req.args, {a:1});
-                            assert.deepEqual(Object.keys(req.root.resources), ['/user']);
+                            assert.deepEqual(Object.keys(req.target.resources), ['/user']);
                             assert.deepEqual(Object.keys(req.resource.resources), []);
                             assert.deepEqual(req.method.verbs, ['req']);
                         }
                     }
                 },
-                '/device/:device/command': {
-                    // TODO: params
+                '/user/device/:device/command/:command': {
+                    ':device=mixer, :command=start': {
+                        topic: function(root){
+                            root.exec('/user/device/mixer/command/start', 'exec', {a:1}, this.callback);
+                        },
+                        'request ok': function(err, req){
+                            assert.ok(!err);
+                            assert.equal(req.path, '/user/device/mixer/command/start');
+                            assert.deepEqual(req.path_arr, ['/user', '/device/mixer', '/command/start']);
+                            assert.equal(req.verb, 'exec');
+                            assert.deepEqual(req.args, {a:1});
+                            assert.deepEqual(req.params, { device: 'MIXER', command: 'start' });
+                        }
+                    },
+                    ':device=mixer, :command=UNKNOWN': {
+                        topic: function(root){
+                            root.exec('/user/device/mixer/command/UNKNOWN', 'exec', {a:1}, this.callback);
+                        },
+                        'request ok': function(err, req){
+                            assert.equal(err, 'unknown command');
+                            assert.equal(req, undefined);
+                        }
+                    }
                 }
             }
         }
