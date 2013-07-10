@@ -8,6 +8,7 @@ var vows = require('vows'),
     ;
 
 vows.describe('ApiMan')
+    // resource(), method(), param(), which(), query()
     .addBatch({
         'given an API,': {
             // Define the structure for all further tests
@@ -175,10 +176,10 @@ vows.describe('ApiMan')
                 // Exec top-level method
                 'list /': {
                     topic: function(root){
-                        root.request('', 'list', this.callback);
+                        root.request('', 'list', {}, this.callback);
                     },
                     'returns list of resources': function(err, result){
-                        assert.ok(!err);
+                        assert.equal(err, undefined);
                         assert.deepEqual(result, ['/user']);
                     }
                 },
@@ -188,7 +189,7 @@ vows.describe('ApiMan')
                         root.request('', 'req', {a:1}, this.callback);
                     },
                     'returns a valid request object': function(err, req){
-                        assert.ok(!err);
+                        assert.equal(err, undefined);
                         assert.equal(req.path, '');
                         assert.deepEqual(req.path_arr, []);
                         assert.equal(req.verb, 'req');
@@ -201,7 +202,7 @@ vows.describe('ApiMan')
                         root.request('/user', 'set', {a:1}, this.callback);
                     },
                     'saved ok': function(err, result){
-                        assert.ok(!err);
+                        assert.equal(err, undefined);
                         assert.deepEqual(result, {ok: true});
                     }
                 },
@@ -221,7 +222,7 @@ vows.describe('ApiMan')
                             root.request('/user', 'get', {uid: 10}, this.callback);
                         },
                         'returns the user': function(err, result){
-                            assert.ok(!err);
+                            assert.equal(err, undefined);
                             assert.deepEqual(result, {uid: 10, name: 'user'});
                         }
                     }
@@ -232,7 +233,7 @@ vows.describe('ApiMan')
                         root.request('/user', 'del', {uid: 10}, this.callback);
                     },
                     'user deleted': function(err, result){
-                        assert.ok(!err);
+                        assert.equal(err, undefined);
                         assert.deepEqual(result, {ok: true});
                     }
                 },
@@ -264,7 +265,7 @@ vows.describe('ApiMan')
                             root.request('/user', 'mw', {uid: 10, name: 'user'}, this.callback);
                         },
                         'middleware allowed': function(err, result){
-                            assert.ok(!err);
+                            assert.equal(err, undefined);
                             assert.deepEqual(result, {ok: true});
                         }
                     }
@@ -272,7 +273,7 @@ vows.describe('ApiMan')
                 // Try to invoke some method on an empty resource
                 '/empty': {
                     topic: function(root){
-                        return root.request('/empty', '', this.callback) || 'not found';
+                        return root.request('/empty', '', {}, this.callback) || 'not found';
                     },
                     'method not found': function(method){
                         assert.equal(method, 'not found');
@@ -285,7 +286,7 @@ vows.describe('ApiMan')
                             root.request('/user/profile', 'req', {a:1}, this.callback);
                         },
                         'returns a valid request object': function(err, req){
-                            assert.ok(!err);
+                            assert.equal(err, undefined);
                             assert.equal(req.path, '/user/profile'); // path
                             assert.deepEqual(req.path_arr, ['/user', '/profile']); // path array
                             assert.equal(req.verb, 'req'); // verb ok
@@ -301,7 +302,7 @@ vows.describe('ApiMan')
                             root.request('/user/device/mixer/command/start', 'exec', {a:1}, this.callback);
                         },
                         'request ok': function(err, req){
-                            assert.ok(!err);
+                            assert.equal(err, undefined);
                             assert.equal(req.path, '/user/device/mixer/command/start');
                             assert.deepEqual(req.path_arr, ['/user', '/device/mixer', '/command/start']);
                             assert.equal(req.verb, 'exec');
@@ -323,6 +324,7 @@ vows.describe('ApiMan')
             }
         }
     })
+    // merge()
     .addBatch({
         'merging resources': {
             topic: function(){
@@ -361,31 +363,156 @@ vows.describe('ApiMan')
             // module was merged
             'call user:ok': {
                 topic: function(root){
-                    root.request('/user', 'ok', this.callback);
+                    root.request('/user', 'ok', {}, this.callback);
                 },
                 'called ok': function(err, result){
-                    assert.ok(!err);
+                    assert.equal(err, undefined);
                     assert.equal(result, 'ok user');
                 }
             },
             // extension was merged
             'call user:hello': {
                 topic: function(root){
-                    root.request('/user', 'hello', this.callback);
+                    root.request('/user', 'hello', {}, this.callback);
                 },
                 'called ok': function(err, result){
-                    assert.ok(!err);
+                    assert.equal(err, undefined);
                     assert.equal(result, 'hello user');
                 }
             },
             // second resource from the module was merged
             'call device:ok': {
                 topic: function(root){
-                    root.request('/device', 'ok', this.callback);
+                    root.request('/device', 'ok', {}, this.callback);
                 },
                 'called ok': function(err, result){
-                    assert.ok(!err);
+                    assert.equal(err, undefined);
                     assert.equal(result, 'ok device');
+                }
+            }
+        }
+    })
+    // Mappers
+    .addBatch({
+        'on an API with defined mappers,': {
+            topic: function(){
+                var root = new apiman.Root();
+
+                var user = root.resource('/user');
+                user.method('save', function(req, res){ res.ok('saved'); });
+                user.method(['load', 'del'], function(req, res){ res.ok({'load': 'loaded', 'del': 'deleted'}[req.verb]); });
+                user.method('block', function(req, res){ res.ok('blocked'); });
+                user.method('list', function(req, res){ res.ok('listed'); });
+                user.map('express', {
+                    '': ['', {GET: 'load', POST: 'save', DELETE: 'del'}],
+                    '/block': ['', 'block'],
+                    '/list': ['', 'list']
+                });
+
+                var profile = user.resource('/profile');
+                profile.method('peek', function(req, res){ res.ok('o_O'); });
+                profile.method('steal', function(req, res){ res.ok('stolen'); });
+                profile.map('express', function(path, verb){
+                    return ['',
+                            {'/peek': 'peek', '/steal': 'steal'}[path]
+                    ];
+                });
+
+                return root;
+            },
+            // Mapped method
+            'GET /user': {
+                topic: function(root){
+                    root.requestFrom('express', '/user', 'GET', {}, this.callback)
+                        || this.callback('MNF');
+                },
+                'mapped & called': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.equal(result, 'loaded');
+                }
+            },
+            // Mapped method
+            'POST /user': {
+                topic: function(root){
+                    root.requestFrom('express', '/user', 'POST', {}, this.callback)
+                        || this.callback('MNF');
+                },
+                'mapped & called': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.equal(result, 'saved');
+                }
+            },
+            // Mapped method
+            'DELETE /user': {
+                topic: function(root){
+                    root.requestFrom('express', '/user', 'DELETE', {}, this.callback)
+                        || this.callback('MNF');
+                },
+                'mapped & called': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.equal(result, 'deleted');
+                }
+            },
+            // Unknown verb
+            'UNKNOWN /user': {
+                topic: function(root){
+                    return root.requestFrom('express', '/user', 'PUT', {}, function(){}) || 'MNF';
+                },
+                'unknown method': function(ok){
+                    assert.equal(ok, 'MNF');
+                }
+            },
+            // unknown resource
+            'GET /userGG': {
+                topic: function(root){
+                    return root.requestFrom('express', '/user', 'PUT', {}, this.callback) || 'MNF';
+                },
+                'unknown resoure': function(ok){
+                    assert.equal(ok, 'MNF');
+                }
+            },
+            // Method mapped to a sub-resource
+            'GET /user/block': {
+                topic: function(root){
+                    root.requestFrom('express', '/user/block', 'GET', {}, this.callback)
+                        || this.callback('MNF');
+                },
+                'mapped & called': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.equal(result, 'blocked');
+                }
+            },
+            // Method mapped to a sub-resource
+            'GET /user/list': {
+                topic: function(root){
+                    root.requestFrom('express', '/user/list', 'GET', {}, this.callback)
+                        || this.callback('MNF');
+                },
+                'mapped & called': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.equal(result, 'listed');
+                }
+            },
+            // Sub-resource's mapped method
+            'GET /user/profile/peek': {
+                topic: function(root){
+                    root.requestFrom('express', '/user/profile/peek', 'GET', {}, this.callback)
+                        || this.callback('MNF');
+                },
+                'mapped & called': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.equal(result, 'o_O');
+                }
+            },
+            // Sub-resource's mapped method
+            'GET /user/profile/steal': {
+                topic: function(root){
+                    root.requestFrom('express', '/user/profile/steal', 'GET', {}, this.callback)
+                        || this.callback('MNF');
+                },
+                'mapped & called': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.equal(result, 'stolen');
                 }
             }
         }

@@ -4,6 +4,25 @@ ApiMan
 ApiMan is the API methods manager that are exportable to multiple protocols, 
 including REST via Express.
 
+The Motivation
+--------------
+
+When your app needs a REST API - Express is a great choice, but imagine you 
+need to support multiple protocols at the same time and want to have the code
+organized. Faking requests for Express is a tricky thing that is not guaranteed
+to function as it progresses...
+
+ApiMan steps in: you define a tree of resources with named methods bound to 
+them, and now just bind it to Express as a middleware. Wait, some methods should
+also be available through socket.io? No problem.
+
+Now, we want some middleware for data preparation and authentication? 
+Yes, we support that.
+
+Enjoy it, guys :)
+
+
+
 Core Components
 ===============
 
@@ -27,6 +46,8 @@ The `Root` is actually a resource with empty path.
 
 Although we follow the HTTP-style slash-separated paths, you're free to use any 
 convention you're comfortable with.
+
+
 
 Method
 ------
@@ -87,6 +108,8 @@ The `Response` object is a naive wrapper for a NodeJS-style
 * `Response.ok(result)` is the callback for results that 
     wraps `Response.send(undefined, result)`
 
+    
+    
 Middleware
 ----------
 
@@ -128,6 +151,8 @@ user_profile.use(function(req, res, next){
 });
 ```
 
+
+
 Parameters
 ----------
 
@@ -161,6 +186,8 @@ which maps a group to a middleware invocation:
 To have named parameters, you typically place them in the `Request.params` 
 object designed for that.
 
+
+
 Merging Resources
 -----------------
 
@@ -191,11 +218,13 @@ api.merge(module, extension);
 The example above results in a tree with a single `/user` Resource which has
 two methods defined: `get` and `command`.
 
+
+
 Executing methods
 -----------------
 
 To execute a method of your API root, use the 
-`Resource.request(path, verb[, args[, req]], callback)` method:
+`Resource.request(path, verb, args[, req], callback)` method:
 
 * `path` is the path to some resource within the tree
 * `verb` is the name of the method to execute
@@ -220,5 +249,223 @@ To execute a method of your API root, use the
 
 If a resource or method is not found, the function returns `false`.
 
-Mapping
-=======
+### Matching
+
+In the examples above we follow the REST naming conventions for clarity, but 
+again, that is not required.
+
+Given a path, ApiMan performs a case-sensitive exact prefix matching. 
+For instance, given the following resources chain:
+
+```js
+var root = new apiman.Root();
+root.resource('/user')
+    .resource('/device/commands')
+        .resource('/private');
+```
+
+path `'/user/device/commands/private'` recursively matches each resource by 
+prefix: `'/user'`, `'/device/commands'`, `'/private'`.
+
+Don't expect ApiMan to forgive extra or missing slashes: it's protocol-agnostic 
+by design and, potentially, all special characters might have a meaning.
+
+Anyway, nothing prevents you from making a preprocessor which tunes the input
+to your taste:
+
+```js
+// Ensure a leading slash, no trailing slash, and collapse duplicate slashes
+path = ('/' + path).replace(/\/+/g, '/').replace(/\/$/, '');
+```
+
+
+
+
+
+
+Exporting the API
+=================
+
+socket.io
+---------
+
+Piece of cake: as socket.io can exchange json objects, you just need a 
+handy convention for sending requests and getting responses.
+
+The only difficulty is that socket.io does not support the request-response
+protocol out of the box, but we can easily overcome that by numbering the 
+packets.
+
+Given the above, let's use the following data exchange protocol:
+
+* Request:  `{{ id: Number, path: String, verb: String, args: Object }}`
+* Response: `{{ id: Number, data: [ undefined, Object ] }}`
+* Error:    `{{ id: Number, data: [ String|Error, undefined ] }}`
+
+On the server:
+
+```js
+io.sockets.on('connection', function (socket) {
+    socket.on('api', function (data) {
+        root.request(data.path, data.verb, data.args, function(err, result){
+            // Emit the result using the same method id
+            socket.emit('api.result', { 
+                id: data.id, 
+                ret: [err, result]
+            });
+        }) ||
+            socket.emit('api.result', {
+                id: data.id, 
+                ret: ['unknown method', undefined]
+            });
+    });
+});
+```
+
+And on the client:
+
+```js
+io_method = function(path, verb, args, callback){
+    var request = {
+        id: io_method._id++, // packet id
+        path: path,
+        verb: verb,
+        args: args
+    };
+    io_method._wait[request.id] = callback;
+    socket.emit('api', request);
+};
+io_method._id=0;
+io_method._wait = {};
+
+// Listen for responses
+socket.on('api.result', function(data){
+    io_method._wait[data.id].apply(null, data.ret);
+});
+```
+
+This approach, however, has 2 weak points:
+
+* On reconnect, the response can't be received transparently
+* The exposed error objects can potentially contain sensitive data 
+    like stack traces
+
+
+
+Express
+-------
+
+Assume you already have your API defined under the `root` variable, and now it's 
+time to export it to Express. There are a couple of things to take care of:
+
+1. Map your resources and methods to paths
+2. Format the output for responses
+3. Decide on the HTTP status code for errors
+
+If your resources & methods (expecially their verbs) are directly exportable
+to Express and compatible with REST, you're lucky:
+
+```js
+app.use('/api', function(req, res){
+    var path = req.path,
+        args = _(req.body).extend(req.query), // combine
+        verb = req.method,
+        apireq = {} // additional fields for Request
+        ;
+    
+    // Pass the request to ApiMan
+    var found = root.request(path, verb, args, apireq, function(err, result){
+        // Format the output
+        if (err)
+            res.type('json').send(err.httpCode || 500, { error: err.message });
+        else
+            res.type('json').send(result);
+    });
+    
+    // Method not found
+    if (!found)
+        res.type('json').send(404, { error: 'Unknown API method' });
+});
+```
+
+The only issue that remains is that all error codes are `400`: we don't 
+differentiate server errors, client errors and stuff. To overcome that, you'd 
+need a convention:
+
+* Always return an error object with a custom HTTP status code set.
+    Default to 500 for other cases (all other errors)
+* Create a hierarchy of custom `Error` objects with an http status code
+    defined on each, and return them.
+
+### Complex mappings
+
+ApiMan supports a richer methods collection interface which's not limited to
+HTTP methods: as an example, imagine a `/user` resource with methods 
+`load`, `save`, `del`, `block`, `list`. While for CRUD methods you can just 
+map the HTTP verbs (`GET` -> `load`), the `block` and `list` method would have 
+required sub-resources and/or query strings.
+
+That's what you need the mappers for.
+
+First, change your Express middleware a little to enable mappers for 'express' 
+on the request:
+
+```js
+// Tell ApiMan we're from Express
+root.requestFrom('express', path, verb, args, req, function(err, result){ 
+    /* ...*/ 
+});
+```
+
+In order for the magic to work for us, we need to declare mappers on 
+non-exportable resources which routes the REST requests to ApiMan methods.
+
+Observe the example:
+
+```js
+var user = root.resource('/user');
+
+user.method('load', function(req, res){/*...*/});
+user.method('save', function(req, res){/*...*/});
+user.method('del', function(req, res){/*...*/});
+user.method('block', function(req, res){/*...*/});
+user.method('list', function(req, res){/*...*/});
+
+user.map('express', function(path, verb){
+    // Trick the incoming (path,verb)
+    switch (path){
+        case '': // endpoint
+            return [
+                path, 
+                // Change the verb
+                {GET: 'load', POST: 'save', DELETE: 'del'}[verb]
+            ];
+        case '/list': // fake path
+            return ['', 'list']; // route to the method
+        case '/block':
+            return ['', 'block'];
+    }
+    return undefined; // unchanged
+});
+```
+
+The mapper function can be defined on any resource and is invoked when the 
+resource tree is traversed. It accepts the `(path,verb)` pair, where `path` is
+the current path remainder with all matched prefixes already truncated. It's
+expected to return an altered `[path,verb]` pair sufficient for the subsequent
+resource/method lookup to succeed.
+
+As usually simple path/verb mapping is enough, you can save a callback and give
+a mapping instead:
+
+```js
+user.map('express', {
+    '': ['', {GET: 'load', POST: 'save', DELETE: 'del'}]
+    '/list': ['', 'list'],
+    '/block': ['', 'block'],
+});
+```
+
+The mapper will search for the path remainder in the object keys. If the value
+is an array - it's taken as a `[path,verb]` pair, where the verb can be 
+specified as a mapping.
