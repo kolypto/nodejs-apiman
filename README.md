@@ -1,7 +1,7 @@
 ApiMan
 ======
 
-ApiMan is the API methods manager that are exportable to multiple protocols, 
+ApiMan is the API methods manager that is exportable to multiple protocols, 
 including REST via Express.
 
 The Motivation

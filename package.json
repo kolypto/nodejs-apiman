@@ -1,6 +1,6 @@
 {
   "name": "apiman",
-  "description": "Abstract API methods manager",
+  "description": "Protocol-agnostic API methods manager",
   "version": "0.0.1",
   
   "author": "kolypto <kolypto@gmail.com>",
