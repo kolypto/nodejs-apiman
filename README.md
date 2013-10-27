@@ -47,6 +47,12 @@ The `Root` is actually a resource with empty path.
 Although we follow the HTTP-style slash-separated paths, you're free to use any 
 convention you're comfortable with.
 
+The following properties may be useful:
+
+```js
+user.root; // Reference to the root Resource
+user.parent; // Parent resource
+```
 
 
 Method
@@ -161,9 +167,9 @@ anchor them to the start of the string. As RegExps can capture parts of the
 input, I could't resist to not add the parameters support:
 
 ```js
-var device_commands = root.resource(new RegExp('/device/(\w+)/command/(\w+)'))
+var device_commands = root.resource(new RegExp('^/device/(\w+)/command/(\w+)'))
     .param(1, 'device_type') // Named param
-    .param(2, 'command', function(req, res, next, value){ // Middleware param
+    .param(2, function(req, res, next, value){ // Middleware param
         if (['start', 'stop'].indexOf(value) == -1)
             next(new Error('Unsupported command'));
         else {
@@ -207,6 +213,7 @@ files and then merge with with the `Resource.merge(resource, ...)` method:
 var module = new apiman.Root();
 module.resource('/user')
     .method('get', function(req, res){ /* ... */})
+    .method('set', function(req, res){ /* ... */})
 
 // Extension
 var extension = new apiman.Root();
@@ -426,37 +433,36 @@ non-exportable resources which routes the REST requests to ApiMan methods.
 Observe the example:
 
 ```js
-var user = root.resource('/user');
+var user = root.resource('/user')
+    .method('load', function(req, res){/*...*/});
+    .method('save', function(req, res){/*...*/});
+    .method('del', function(req, res){/*...*/});
+    .method('block', function(req, res){/*...*/});
+    .method('list', function(req, res){/*...*/});
 
-user.method('load', function(req, res){/*...*/});
-user.method('save', function(req, res){/*...*/});
-user.method('del', function(req, res){/*...*/});
-user.method('block', function(req, res){/*...*/});
-user.method('list', function(req, res){/*...*/});
-
-user.map('express', function(path, verb){
-    // Trick the incoming (path,verb)
-    switch (path){
-        case '': // endpoint
-            return [
-                path, 
-                // Change the verb
-                {GET: 'load', POST: 'save', DELETE: 'del'}[verb]
-            ];
-        case '/list': // fake path
-            return ['', 'list']; // route to the method
-        case '/block':
-            return ['', 'block'];
-    }
-    return undefined; // unchanged
-});
+    .map('express', function(path, verb, prev){
+    // Trick the incoming (path,verb,prev)
+        switch (path){
+            case '': // endpoint
+                return [
+                    path,
+                    // Change the verb
+                    {GET: 'load', POST: 'save', DELETE: 'del'}[verb]
+                ];
+            case '/list': // fake path
+                return ['', 'list']; // route to the method
+            case '/block':
+                return ['', 'block'];
+        }
+        return undefined; // unchanged
+    });
 ```
 
 The mapper function can be defined on any resource and is invoked when the 
-resource tree is traversed. It accepts the `(path,verb)` pair, where `path` is
+resource tree is traversed. It accepts the `(path,verb,prev)` triple, where `path` is
 the current path remainder with all matched prefixes already truncated. It's
 expected to return an altered `[path,verb]` pair sufficient for the subsequent
-resource/method lookup to succeed.
+resource/method lookup to succeed. `match` is the current matching part.
 
 As usually simple path/verb mapping is enough, you can save a callback and give
 a mapping instead:

@@ -421,6 +421,40 @@ vows.describe('ApiMan')
                     ];
                 });
 
+                // Mapping with RegExps: two ways
+                var device = root.resource('/device')
+                    // First way
+                    .resource('/command')
+                        .resource('/list')
+                            .method('list', function(req, res){ res.ok('list'); })
+                            .map('express', {
+                                '': ['', {GET: 'list'}]
+                            })
+                            .parent
+                        .resource(new RegExp('^/(\\w+)'))
+                            .param(1, 'name')
+                            .method('exec', function(req, res){ res.ok('exec:'+req.params.name); })
+                            .map('express', {
+                                '': ['', {GET: 'exec'}]
+                            })
+                            .parent
+                        .parent
+                    // Second way
+                    .resource(new RegExp('^/message/(\\w+)'))
+                        .param(1, 'name')
+                        .method('list', function(req, res){ res.ok('list'); })
+                        .method('get', function(req, res){ res.ok('get:'+req.params.name); })
+                        // Override mappings
+                        .map('express', function(path, verb, match){
+                            return {
+                                'GET /message/list': ['', 'list']
+                            }[verb + ' ' + match] || {
+                                GET: ['', 'get']
+                            }[verb];
+                        })
+                        .parent
+
+
                 return root;
             },
             // Mapped method
@@ -516,6 +550,48 @@ vows.describe('ApiMan')
                 'mapped & called': function(err, result){
                     assert.equal(err, undefined);
                     assert.equal(result, 'stolen');
+                }
+            },
+            // Regexp-based method
+            'GET /device/command/sms': {
+                topic: function(root){
+                    root.requestFrom('express', '/device/command/sms', 'GET', {}, this.callback)
+                        || this.callback('MNF');
+                },
+                'mapped & called': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.equal(result, 'exec:sms');
+                }
+            },
+            'GET /device/command/list': {
+                topic: function(root){
+                    root.requestFrom('express', '/device/command/list', 'GET', {}, this.callback)
+                        || this.callback('MNF');
+                },
+                'mapped & called': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.equal(result, 'list');
+                }
+            },
+            // Regexp-based method
+            'GET /device/message/10': {
+                topic: function(root){
+                    root.requestFrom('express', '/device/message/10', 'GET', {}, this.callback)
+                        || this.callback('MNF');
+                },
+                'mapped & called': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.equal(result, 'get:10');
+                }
+            },
+            'GET /device/message/list': {
+                topic: function(root){
+                    root.requestFrom('express', '/device/message/list', 'GET', {}, this.callback)
+                        || this.callback('MNF');
+                },
+                'mapped & called': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.equal(result, 'list');
                 }
             }
         }
