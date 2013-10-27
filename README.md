@@ -162,8 +162,8 @@ input, I could't resist to not add the parameters support:
 
 ```js
 var device_commands = root.resource(new RegExp('/device/(\w+)/command/(\w+)'))
-    .param(1, 'device_type')
-    .param(2, 'command', function(req, res, next, value){
+    .param(1, 'device_type') // Named param
+    .param(2, 'command', function(req, res, next, value){ // Middleware param
         if (['start', 'stop'].indexOf(value) == -1)
             next(new Error('Unsupported command'));
         else {
@@ -172,16 +172,19 @@ var device_commands = root.resource(new RegExp('/device/(\w+)/command/(\w+)'))
         }
     })
     .method('invoke', function(req, res){
+        req.params.device_type;
+        req.params.command;
     });
 ```
 
 Parameters are defined as simple capture groups in a RegExp. To have named 
-params, you use the `Resource.param(index, [, callback])` Resource method 
+params, you use the `Resource.param(index[, callback])` Resource method
 which maps a group to a middleware invocation:
 
 * `index` is the positional index of the capture group
 * `callback` is the middleware that alters the `Request` object using the 
     parameter value: `function(req, res, next, value)`.
+    Alternatively, you can just provide a name and the handler will just copy it.
     
 To have named parameters, you typically place them in the `Request.params` 
 object designed for that.

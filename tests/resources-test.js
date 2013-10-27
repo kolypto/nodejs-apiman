@@ -85,15 +85,18 @@ vows.describe('ApiMan')
                         req.params['device'] = val.toUpperCase();
                         next();
                     });
-                var user_device_commands = user_devices.resource(new RegExp('^/command/(\\w+)'))
-                    .param(1, function(req, res, next, val){
+                var user_device_commands = user_devices.resource(new RegExp('^/command/(\\w+)/(\\w+)/(\\w+)'))
+                    .param(1, function(req, res, next, val){ // Functional param
                         if (['start', 'stop'].indexOf(val) == -1)
                             next('unknown command');
                         else {
                             req.params['command'] = val;
                             next();
                         }
-                    });
+                    })
+                    .param(2) // Indexed param
+                    .param(3, 'name') // Named param
+                    ;
 
                 user_device_commands.method('exec', function(req, res){
                     res.ok(req);
@@ -149,7 +152,7 @@ vows.describe('ApiMan')
                 // Lookup methods with params (given as regexp)
                 'level 4 with params': {
                     topic: function(root){
-                        return root.which('/user/device/cellphone/command/call', 'exec') || null;
+                        return root.which('/user/device/cellphone/command/call/abc/def', 'exec') || null;
                     },
                     'found': function(method){
                         // Found ok
@@ -295,25 +298,25 @@ vows.describe('ApiMan')
                     }
                 },
                 // Check parameters
-                '/user/device/:device/command/:command': {
+                '/user/device/:device/command/:command/:2/:name': {
                     // Correct call
-                    ':device=mixer, :command=start': {
+                    ':device=mixer, :command=start, :2=abc, :name=def': {
                         topic: function(root){
-                            root.request('/user/device/mixer/command/start', 'exec', {a:1}, this.callback);
+                            root.request('/user/device/mixer/command/start/abc/def', 'exec', {a:1}, this.callback);
                         },
                         'request ok': function(err, req){
                             assert.equal(err, undefined);
-                            assert.equal(req.path, '/user/device/mixer/command/start');
-                            assert.deepEqual(req.path_arr, ['/user', '/device/mixer', '/command/start']);
+                            assert.equal(req.path, '/user/device/mixer/command/start/abc/def');
+                            assert.deepEqual(req.path_arr, ['/user', '/device/mixer', '/command/start/abc/def']);
                             assert.equal(req.verb, 'exec');
                             assert.deepEqual(req.args, {a:1});
-                            assert.deepEqual(req.params, { device: 'MIXER', command: 'start' });
+                            assert.deepEqual(req.params, { device: 'MIXER', command: 'start', 2: 'abc', name: 'def' });
                         }
                     },
                     // Parameter function produces an error
                     ':device=mixer, :command=UNKNOWN': {
                         topic: function(root){
-                            root.request('/user/device/mixer/command/UNKNOWN', 'exec', {a:1}, this.callback);
+                            root.request('/user/device/mixer/command/UNKNOWN/a/b', 'exec', {a:1}, this.callback);
                         },
                         'request ok': function(err, req){
                             assert.equal(err, 'unknown command');
