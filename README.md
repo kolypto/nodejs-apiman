@@ -103,6 +103,11 @@ And also some internal informational fields:
 * `req.middleware` is an array of middleware assigned to this very request.
 * `req.response` is the `Response` object shortcut used internally
 
+Request extends the `events.EventEmitter` with the following events:
+
+* `EventEmitter#method (method: Method)`: called before a method under this resource is executed
+* `EventEmitter#done (err: Object?, result: *)`: called after a method has finished
+
 ### Response
 
 The `Response` object is a naive wrapper for a NodeJS-style 

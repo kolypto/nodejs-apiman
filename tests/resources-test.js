@@ -596,4 +596,67 @@ vows.describe('ApiMan')
             }
         }
     })
+
+    // Events
+    .addBatch({
+        'given an API': {
+            topic: function(){
+                var root = new apiman.Root;
+
+                root.use(function(req, res, next){
+                    req.root_mw_worked = true;
+                    req.session = {};
+
+                    // Before calling the method
+                    req.on('method', function(method){
+                        req.session.method = method.toString();
+                    });
+
+                    // After calling the method
+                    req.on('done', function(err, data){
+                        req.session.done = [err, data];
+                    });
+
+                    next();
+                });
+
+                var user = root.resource('/user');
+                user.use(function(req, res, next){
+                    req.user_mw_worked = true;
+                    next();
+                });
+
+                user.method('get',
+                    function(req, res, next){
+                        req.method_mw_worked = true;
+                        next();
+                    },
+                    function(req, res){
+                        req.method_called = true;
+                        res.ok(req);
+                    }
+                );
+
+                return root;
+            },
+
+            'call /user:get': {
+                topic: function(root){
+                    root.request('/user', 'get', {a:1}, this.callback);
+                },
+                'middleware worked': function(err, req){
+                    assert.equal(err, undefined);
+
+                    assert.equal(req.method_called, true); // method was called
+                    assert.equal(req.root_mw_worked, true); // root resource mw worked
+                    assert.equal(req.user_mw_worked, true); // user resource mw worked
+                    assert.equal(req.method_mw_worked, true); // method mw worked
+
+                    assert.equal(req.session.method, 'get /user');
+                    assert.equal(req.session.done[0], undefined);
+                    assert.equal(req.session.done[1].path, '/user');
+                }
+            }
+        }
+    })
     .export(module);
