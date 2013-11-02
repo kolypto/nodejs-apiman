@@ -501,16 +501,17 @@ A compatible port of the [connect.session](http://www.senchalabs.org/connect/ses
 to use the same `Session` object API and the session Store backends
 like the [connect-redis](https://npmjs.org/package/connect-redis) package.
 
-    :::javascript
-    var root = new apiman.Root;
-    root.use(apiman.middleware.session({
-        // Session store backend, Connect-compatible.
-        // When unspecified, uses MemoryStore
-        store: new connect.session.MemoryStore(),
-        // Maximum session lifetime in milliseconds.
-        // `null` produces a single-connection session.
-        maxAge: 60*60*24 *1000, // 1 day
-        // Session id is signed with this secret to prevent tampering
-        // NOTE: not implemented!
-        secret: 'cockatoo parrot'
-    });
+```js
+var root = new apiman.Root;
+root.use(apiman.middleware.session({
+    // Session store backend, Connect-compatible.
+    // When unspecified, uses MemoryStore
+    store: new connect.session.MemoryStore(),
+    // Maximum session lifetime in milliseconds.
+    // `null` produces a single-connection session.
+    maxAge: 60*60*24 *1000, // 1 day
+    // Session id is signed with this secret to prevent tampering
+    // NOTE: not implemented!
+    secret: 'cockatoo parrot'
+});
+```
