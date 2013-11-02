@@ -4,7 +4,8 @@ var vows = require('vows'),
     assert = require('assert'),
     apiman = require('..'),
     Resource = require('../lib/structure/Resource'),
-    Method = require('../lib/structure/Method')
+    Method = require('../lib/structure/Method'),
+    connect = require('connect')
     ;
 
 vows.describe('ApiMan')
@@ -655,6 +656,86 @@ vows.describe('ApiMan')
                     assert.equal(req.session.method, 'get /user');
                     assert.equal(req.session.done[0], undefined);
                     assert.equal(req.session.done[1].path, '/user');
+                }
+            }
+        }
+    })
+    // Middleware
+    .addBatch({
+        'session middleware':{
+            topic: function(){
+                var root = new apiman.Root;
+
+                root.use(apiman.middleware.session({
+                    store: new connect.session.MemoryStore
+                }));
+
+                root.method('get', function(req, res){
+                    res.ok({ ok:1 });
+                });
+                root.method('set', function(req, res){
+                    req.session[req.args.name] = req.args.val;
+                    res.ok({ ok:1 });
+                });
+
+                return root;
+            },
+
+            'creation test': {
+                topic: function(root){
+                    var self = this;
+
+                    root.request('', 'get', {}, this.callback);
+                },
+
+                'session data created': function(err, result, req){
+                    assert.equal(err, undefined);
+                    assert.deepEqual(result, { ok:1 });
+                    assert.ok(req.sessionID !== undefined);
+                    assert.ok(req.session !== undefined);
+                }
+            },
+
+            'persistence test': {
+                topic: function(root){
+                    var self = this;
+
+                    var sessionID;
+
+                    /** Call the '':'set' method with a delay so the session storage backend has a change to save the session data
+                     * @param args
+                     * @param callback
+                     */
+                    var callDelayed = function(args, callback){
+                        setTimeout(function(){
+                            root.request('', 'set', args, {sessionID: sessionID}, function(err, result, req){
+                                sessionID = req.sessionID;
+                                callback.apply(this, arguments);
+                            });
+                        }, 100);
+                    }
+
+                    callDelayed({ name: 'first', val: 1 }, function(err, result, req){
+                        callDelayed({ name: 'second', val: 2 }, function(err, result, req){
+                            callDelayed({ name: 'third', val: 3 }, self.callback);
+                        });
+                    });
+                },
+
+                'session data created': function(err, result, req){
+                    assert.equal(err, undefined);
+                    assert.deepEqual(result, { ok:1 });
+                    assert.ok(req.sessionID !== undefined);
+                    assert.ok(req.session !== undefined);
+                    assert.deepEqual({
+                        first: req.session.first,
+                        second: req.session.second,
+                        third: req.session.third
+                    }, {
+                        first: 1,
+                        second: 2,
+                        third: 3
+                    });
                 }
             }
         }

@@ -1,7 +1,7 @@
 {
   "name": "apiman",
   "description": "Protocol-agnostic API methods manager",
-  "version": "0.0.4",
+  "version": "0.0.5",
   
   "author": "kolypto <kolypto@gmail.com>",
   "license": "MIT",
@@ -25,7 +25,9 @@
     "async": "0.2.9"
   },
   "devDependencies": {
-    "vows": "0.7.x"
+    "vows": "0.7.x",
+    "connect": "2.11.x",
+    "uid2": "0.0.x"
   },
   "engines": {
     "node": ">= 0.9.0"

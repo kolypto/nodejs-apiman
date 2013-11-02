@@ -105,8 +105,8 @@ And also some internal informational fields:
 
 Request extends the `events.EventEmitter` with the following events:
 
-* `EventEmitter#method (method: Method)`: called before a method under this resource is executed
-* `EventEmitter#done (err: Object?, result: *)`: called after a method has finished
+* `Request#method (method: Method)`: called before a method under this resource is executed
+* `Request#done (err: Object?, result: *)`: called after a method has finished
 
 ### Response
 
@@ -247,7 +247,7 @@ To execute a method of your API root, use the
 * `req` is an object with extended request fields. Optional.
     Useful to populate additional `Request` fields at the invocation time: say,
     user session.
-* `callback` accepts the method output: `function(err, result)`.
+* `callback` accepts the method output and the `Request` object: `function(err, result, req)`.
 
 `Resource.request()` does the following:
 
@@ -483,3 +483,34 @@ user.map('express', {
 The mapper will search for the path remainder in the object keys. If the value
 is an array - it's taken as a `[path,verb]` pair, where the verb can be 
 specified as a mapping.
+
+
+
+
+
+
+Bundled Middleware
+==================
+
+All bundled middleware comes in `require('apiman').middleware` module.
+
+apiman.middleware.session
+-------------------------
+
+A compatible port of the [connect.session](http://www.senchalabs.org/connect/session.html) middleware which allows you
+to use the same `Session` object API and the session Store backends
+like the [connect-redis](https://npmjs.org/package/connect-redis) package.
+
+    :::javascript
+    var root = new apiman.Root;
+    root.use(apiman.middleware.session({
+        // Session store backend, Connect-compatible.
+        // When unspecified, uses MemoryStore
+        store: new connect.session.MemoryStore(),
+        // Maximum session lifetime in milliseconds.
+        // `null` produces a single-connection session.
+        maxAge: 60*60*24 *1000, // 1 day
+        // Session id is signed with this secret to prevent tampering
+        // NOTE: not implemented!
+        secret: 'cockatoo parrot'
+    });
