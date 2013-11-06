@@ -416,7 +416,7 @@ vows.describe('ApiMan')
                 var profile = user.resource('/profile');
                 profile.method('peek', function(req, res){ res.ok('o_O'); });
                 profile.method('steal', function(req, res){ res.ok('stolen'); });
-                profile.map('express', function(path, verb){
+                profile.map('express', function(req, path, verb, match){
                     return ['',
                             {'/peek': 'peek', '/steal': 'steal'}[path]
                     ];
@@ -446,7 +446,7 @@ vows.describe('ApiMan')
                         .method('list', function(req, res){ res.ok('list'); })
                         .method('get', function(req, res){ res.ok('get:'+req.params.name); })
                         // Override mappings
-                        .map('express', function(path, verb, match){
+                        .map('express', function(req, path, verb, match){
                             return {
                                 'GET /message/list': ['', 'list']
                             }[verb + ' ' + match] || {

@@ -1,7 +1,7 @@
 {
   "name": "apiman",
   "description": "Protocol-agnostic API methods manager",
-  "version": "0.0.7",
+  "version": "0.1.0",
   
   "author": "kolypto <kolypto@gmail.com>",
   "license": "MIT",
