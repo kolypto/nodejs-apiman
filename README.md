@@ -194,8 +194,12 @@ which maps a group to a middleware invocation:
 
 * `index` is the positional index of the capture group
 * `callback` is the middleware that alters the `Request` object using the 
-    parameter value: `function(req, res, next, value)`.
+    parameter value: `function(req, res, next, value)`. The function is a middleware.
+
     Alternatively, you can just provide a name and the handler will just copy it.
+
+    Finally, by providing a function with the arity of 2, `function(req, value)`, you
+    can bind non-middleware parameters at the request phase: useful to have parameters accessible from mappers.
     
 To have named parameters, you typically place them in the `Request.params` 
 object designed for that.
@@ -217,6 +221,7 @@ ApiMan provides a convenience wrapper which allows you to use Express-style para
     `regex` is an alternative RegExp. The default is `[^/]+`.
 
     `proc` is a preprocessor function with two arguments: the request, and the captured value.
+        Like normal params, it also can be a middleware: `function(req, res, next, value)`.
 
 Example:
 

@@ -82,9 +82,8 @@ vows.describe('ApiMan')
 
                 // Subresource with params
                 var user_devices = user.resource(new RegExp('^/device/(\\w+)'))
-                    .param(1, function(req, res, next, val){
+                    .param(1, function(req, val){
                         req.params['device'] = val.toUpperCase();
-                        next();
                     });
                 var user_device_commands = user_devices.resource(new RegExp('^/command/(\\w+)/(\\w+)/(\\w+)'))
                     .param(1, function(req, res, next, val){ // Functional param
@@ -749,8 +748,6 @@ vows.describe('ApiMan')
                 root.xresource('/user-:login/profile/:type/:id?/:option?', {
                     id: { regex: '\\d+' },
                     type: { proc: function(req, value){
-                        if (value !== 'personal')
-                            throw new Error('Invalid profile type: ' + value);
                         return value.toUpperCase();
                     } }
                 }).method('get', function(req, res){
@@ -847,15 +844,6 @@ vows.describe('ApiMan')
                 'params ok': function(err, result){
                     assert.equal(err, undefined);
                     assert.deepEqual(result, { login: 'kolypto', type: 'PERSONAL', id: '19', option: 'valid' });
-                }
-            },
-            '/user-kolypto/profile/invalidprofile/111/invalid': {
-                topic: function(root){
-                    var r=  root.request('/user-kolypto/profile/invalidprofile/111/invalid', 'get', {}, this.callback);
-                },
-                'params ok': function(err, result){
-                    assert.ok(err instanceof Error);
-                    assert.equal(result, undefined);
                 }
             }
         }
