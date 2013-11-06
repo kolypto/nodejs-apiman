@@ -860,4 +860,86 @@ vows.describe('ApiMan')
             }
         }
     })
+    // Resource chain test
+    .addBatch({
+        'given a chain of resources': {
+            topic: function(){
+                var root = new apiman.Root;
+
+                var one = root.resource('/one')
+                    .method('get', function(req, res){ res.ok({ level: 1 }); });
+
+                var two = one.resource('/two')
+                    .method('get', function(req, res){ res.ok({ level: 2 }); });
+
+                var three = two.resource(new RegExp('^/three'))
+                    .method('get', function(req, res){ res.ok({ level: 3 }); });
+
+                var four = three.resource(new RegExp('^/four'))
+                    .method('get', function(req, res){ res.ok({ level: 4 }); });
+
+                var five = four.resource(new RegExp('^/(five)?'))
+                    .method('get', function(req, res){ res.ok({ level: 5 }); });
+
+                return root;
+            },
+
+            'must execute the method at level': {
+                'one': {
+                    topic: function(root){
+                        root.request('/one', 'get', {}, this.callback);
+                    },
+                    'ok': function(err, result){
+                        assert.equal(err, undefined);
+                        assert.deepEqual(result, { level: 1 });
+                    }
+                },
+                'two': {
+                    topic: function(root){
+                        root.request('/one/two', 'get', {}, this.callback);
+                    },
+                    'ok': function(err, result){
+                        assert.equal(err, undefined);
+                        assert.deepEqual(result, { level: 2 });
+                    }
+                },
+                'three': {
+                    topic: function(root){
+                        root.request('/one/two/three', 'get', {}, this.callback);
+                    },
+                    'ok': function(err, result){
+                        assert.equal(err, undefined);
+                        assert.deepEqual(result, { level: 3 });
+                    }
+                },
+                'four': {
+                    topic: function(root){
+                        root.request('/one/two/three/four', 'get', {}, this.callback);
+                    },
+                    'ok': function(err, result){
+                        assert.equal(err, undefined);
+                        assert.deepEqual(result, { level: 4 });
+                    }
+                },
+                'five': {
+                    topic: function(root){
+                        root.request('/one/two/three/four/five', 'get', {}, this.callback);
+                    },
+                    'ok': function(err, result){
+                        assert.equal(err, undefined);
+                        assert.deepEqual(result, { level: 5 });
+                    }
+                },
+                'five:empty': {
+                    topic: function(root){
+                        root.request('/one/two/three/four/', 'get', {}, this.callback);
+                    },
+                    'ok': function(err, result){
+                        assert.equal(err, undefined);
+                        assert.deepEqual(result, { level: 5 });
+                    }
+                }
+            }
+        }
+    })
     .export(module);
