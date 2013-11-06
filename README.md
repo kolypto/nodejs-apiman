@@ -201,6 +201,45 @@ To have named parameters, you typically place them in the `Request.params`
 object designed for that.
 
 
+### Express-style parameters
+ApiMan provides a convenience wrapper which allows you to use Express-style parameters:
+
+`Resource.xresource(path, opts)`
+
+- `path` is the Express-style path with `:named` parameters:
+
+    Use `:name` for required parameters.
+    Use `:name?` for optional parameters.
+
+- `opts` is an optional object to tune the parameter behavior.
+    Maps parameter names to `{{ regex: RegExp?, proc: funtion(req:Request, value:*):* }}`
+
+    `regex` is an alternative RegExp. The default is `[^/]+`.
+
+    `proc` is a preprocessor function with two arguments: the request, and the captured value.
+
+Example:
+
+```js
+root.xresource('/user-:login/profile/:type/:id?/:option?', {
+    id: { regex: '\\d+' },
+    type: { proc: function(req, value){
+        if (value !== 'personal')
+            throw new Error('Invalid profile type: ' + value);
+        return value.toUpperCase();
+    } }
+}).method('get', function(req, res){
+    res.ok({
+        login: req.params.login,
+        type: req.params.type,
+        id: req.params.id || undefined,
+        option: req.params.option || ''
+    });
+});
+```
+
+
+
 
 Merging Resources
 -----------------

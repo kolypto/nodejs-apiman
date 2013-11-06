@@ -740,4 +740,124 @@ vows.describe('ApiMan')
             }
         }
     })
+    // xresource()
+    .addBatch({
+        'given the structure with xresource()': {
+            topic: function(){
+                var root = new apiman.Root;
+
+                root.xresource('/user-:login/profile/:type/:id?/:option?', {
+                    id: { regex: '\\d+' },
+                    type: { proc: function(req, value){
+                        if (value !== 'personal')
+                            throw new Error('Invalid profile type: ' + value);
+                        return value.toUpperCase();
+                    } }
+                }).method('get', function(req, res){
+                    res.ok(req.params);
+                });
+
+                return root;
+            },
+
+            'regexp test': function(root){
+                var rex = root.resources[ Object.keys(root.resources)[0] ].path;
+                assert.equal(rex.exec('/'), null);
+                assert.equal(rex.exec('/user-kolypto'), null);
+                assert.equal(rex.exec('/user-kolypto/'), null);
+                assert.equal(rex.exec('/user-kolypto/profile'), null);
+                assert.equal(rex.exec('/user-kolypto/profile/'), null);
+                assert.deepEqual( // :type ok, :id=undefined
+                    Array.prototype.slice.apply(rex.exec('/user-kolypto/profile/personal')),
+                    [ '/user-kolypto/profile/personal', 'kolypto', 'personal', undefined, undefined ]
+                );
+                assert.deepEqual( // :type ok, :id=undefined
+                    Array.prototype.slice.apply(rex.exec('/user-kolypto/profile/personal/')),
+                    [ '/user-kolypto/profile/personal/', 'kolypto', 'personal', undefined, undefined ]
+                );
+                assert.deepEqual( // :type ok, :id=19
+                    Array.prototype.slice.apply(rex.exec('/user-kolypto/profile/personal/19')),
+                    [ '/user-kolypto/profile/personal/19', 'kolypto', 'personal', '19', undefined ]
+                );
+                assert.equal(rex.exec('/user-kolypto/profile/personal/abc'), null);
+                assert.deepEqual( // :type ok, :id=19, prefix match
+                    Array.prototype.slice.apply(rex.exec('/user-kolypto/profile/personal/19/valid')),
+                    [ '/user-kolypto/profile/personal/19/valid', 'kolypto', 'personal', '19', 'valid' ]
+                );
+                // Anchored test
+                assert.equal(rex.exec('---/user-kolypto/profile/personal/19/a/b/c'), null);
+            },
+
+            '/user-kolypto/profile/': {
+                topic: function(root){
+                    return root.request('/user-kolypto/profile/', 'get', {});
+                },
+                'no match': function(ret){
+                    assert.equal(ret, false);
+                }
+            },
+            '/user-kolypto/profile/personal': {
+                topic: function(root){
+                    var r=  root.request('/user-kolypto/profile/personal', 'get', {}, this.callback);
+                },
+                'params ok': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.deepEqual(result, { login: 'kolypto', type: 'PERSONAL', id: undefined, option: undefined });
+                }
+            },
+            '/user-kolypto/profile/personal/': {
+                topic: function(root){
+                    var r=  root.request('/user-kolypto/profile/personal/', 'get', {}, this.callback);
+                },
+                'params ok': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.deepEqual(result, { login: 'kolypto', type: 'PERSONAL', id: undefined, option: undefined });
+                }
+            },
+            '/user-kolypto/profile/personal/19': {
+                topic: function(root){
+                    var r=  root.request('/user-kolypto/profile/personal/19', 'get', {}, this.callback);
+                },
+                'params ok': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.deepEqual(result, { login: 'kolypto', type: 'PERSONAL', id: '19', option: undefined });
+                }
+            },
+            '/user-kolypto/profile/personal/abc': {
+                topic: function(root){
+                    return root.request('/user-kolypto/profile/personal/abc', 'get', {});
+                },
+                'no match': function(ret){
+                    assert.equal(ret, false);
+                }
+            },
+            '/user-kolypto/profile/personal/19/': {
+                topic: function(root){
+                    var r=  root.request('/user-kolypto/profile/personal/19/', 'get', {}, this.callback);
+                },
+                'params ok': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.deepEqual(result, { login: 'kolypto', type: 'PERSONAL', id: '19', option: undefined });
+                }
+            },
+            '/user-kolypto/profile/personal/19/valid': {
+                topic: function(root){
+                    var r=  root.request('/user-kolypto/profile/personal/19/valid', 'get', {}, this.callback);
+                },
+                'params ok': function(err, result){
+                    assert.equal(err, undefined);
+                    assert.deepEqual(result, { login: 'kolypto', type: 'PERSONAL', id: '19', option: 'valid' });
+                }
+            },
+            '/user-kolypto/profile/invalidprofile/111/invalid': {
+                topic: function(root){
+                    var r=  root.request('/user-kolypto/profile/invalidprofile/111/invalid', 'get', {}, this.callback);
+                },
+                'params ok': function(err, result){
+                    assert.ok(err instanceof Error);
+                    assert.equal(result, undefined);
+                }
+            }
+        }
+    })
     .export(module);
