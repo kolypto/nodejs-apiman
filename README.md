@@ -484,8 +484,8 @@ var user = root.resource('/user')
     .method('block', function(req, res){/*...*/});
     .method('list', function(req, res){/*...*/});
 
-    .map('express', function(path, verb, prev){
-    // Trick the incoming (req,path,verb,prev)
+    .map('express', function(req, path, verb, prev){
+        // Trick the incoming (req,path,verb,prev)
         switch (path){
             case '': // endpoint
                 return [
