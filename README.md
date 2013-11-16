@@ -279,6 +279,36 @@ two methods defined: `get` and `command`.
 
 
 
+Accessing Resources by Name
+---------------------------
+Like in the examples above, you mostly define methods using a variable with the created resource.
+
+For highest modularity, you may want to assign names to your resources so other modules can add more methods to them:
+
+```js
+var root = new apiman.Root();
+
+root.xresource('/user/:uid').setName('user')
+        .xresource('/device/:id').setName('device')
+            .xresource('/command/:name').setName('command');
+
+// Other module:
+root.getResource(['user', 'device', 'command'])
+    .method('exec', function(req, res){ ... });
+```
+
+The following methods are there for you:
+
+`Resource.setName(name: String):Resource`: Specify a name for the resource. Returns the same resource
+
+`Resource.getFullName(): String?`: Get the full name of the current resource as an array
+
+`Resource.getResource(names: Array.<String>): Resource?`: Get a resource by hierarchical name
+
+`Reource.getResourcesMap()`: Generate a purely informational map of named resources under this one.
+
+
+
 Executing methods
 -----------------
 

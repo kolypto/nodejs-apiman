@@ -930,4 +930,63 @@ vows.describe('ApiMan')
             }
         }
     })
+    // Names test
+    .addBatch({
+        'given some named resources': {
+            topic: function(){
+                var root = new apiman.Root();
+
+                root.xresource('/user/:uid').setName('user')
+                        .xresource('/device/:id').setName('device')
+                            .xresource('/command/:name').setName('command')
+                            .parent
+                        .parent
+                        .xresource('/profile/:type').setName('profile')
+                            .parent
+                    .parent
+                    .xresource('/config').setName('config')
+                        .xresource('/input').setName('input');
+
+                return root;
+            },
+            'get user': {
+                topic: function(root){
+                    return root.getResource(['user']);
+                },
+                'path ok': function(user){
+                    assert.ok(user instanceof apiman.Resource);
+                    assert.deepEqual(user.getFullName(), ['user']);
+                    assert.equal(user.toString(), '/^/user/([^/]+)/');
+                }
+            },
+            'get command': {
+                topic: function(root){
+                    return root.getResource(['user', 'device', 'command']);
+                },
+                'path ok': function(command){
+                    assert.ok(command instanceof apiman.Resource);
+                    assert.deepEqual(command.getFullName(), ['user', 'device', 'command']);
+                    assert.equal(command.toString(), '/^/user/([^/]+)//^/device/([^/]+)//^/command/([^/]+)/');
+                }
+            },
+            'generate a map': {
+                topic: function(root){
+                    return root.getResourcesMap();
+                },
+                'map ok': function(map){
+                    assert.deepEqual(map, {
+                        user: {
+                            device: {
+                                command: {}
+                            },
+                            profile: {}
+                        },
+                        config: {
+                            input: {}
+                        }
+                    });
+                }
+            }
+        }
+    })
     .export(module);
