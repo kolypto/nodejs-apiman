@@ -1,0 +1,38 @@
+{
+  "name": "apiman",
+  "description": "Generic API methods manager",
+  "version": "1.0.0",
+  
+  "author": "kolypto <kolypto@gmail.com>",
+  "license": "MIT",
+  "maintainers": [
+    "kolypto <kolypto@gmail.com>"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:kolypto/nodejs-apiman.git"
+  },
+  
+  "main": "./lib/index",
+  "keywords": [
+    "api",
+    "express"
+  ],
+  
+  "dependencies": {
+    "lodash": "2.4.x",
+    "q": "0.9.x"
+  },
+  "devDependencies": {
+    "nodeunit": "0.8.x",
+    "connect": "2.12.x",
+    "uid2": "0.0.x"
+  },
+  "engines": {
+    "node": ">= 0.9.0"
+  },
+  
+  "scripts": {
+    "test": "./node_modules/.bin/nodeunit tests/*-test.js"
+  }
+}
