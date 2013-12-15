@@ -145,15 +145,21 @@ exports.testMiddleware = function(test){
 
     // Middleware
     root.use(function(req, res){
-        req.field = 'r';
+        return Q().delay(10)
+            .then(function(){
+                req.field = 'r';
+            });
     });
 
     user.use(function(req, res){
-        req.field += 'u';
+        return Q().delay(1)
+            .then(function(){
+                req.field += 'u';
+            });
     });
 
     profile.use(function(req, res){
-        return Q().delay(10)
+        return Q().delay(5)
             .then(function(){
                 req.field += 'p';
             });
