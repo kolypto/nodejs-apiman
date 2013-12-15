@@ -132,6 +132,30 @@ exports.testApiMan = function(test){
         .done();
 };
 
+/** Test non-promised methods
+ * @param {test|assert} test
+ */
+exports.testNonPromisedMethod = function(test){
+    var root = new apiman.Root();
+
+    root.method('test', function(req, res){
+        // This method does not return a promise
+        setTimeout(function(){
+            res.ok('finished');
+        }, 10);
+    });
+
+    return root.exec('', 'test')
+        .then(function(result){
+            test.ok(false, 'The method shall not succeed');
+        })
+        .catch(function(err){
+            test.ok(err instanceof apiman.errors.MethodError);
+        })
+        .finally(function(){ test.done(); })
+        .done();
+};
+
 /** Request, Middleware
  * @param {test|assert} test
  */
