@@ -253,7 +253,102 @@ exports.testMiddleware = function(test){
  * @param {test|assert} test
  */
 exports.testErrors = function(test){
-    test.done();
+    // Structure
+    var root = new apiman.Root(),
+        user = root.resource('/user')
+        ;
+
+    // Methods
+    user.method('mw', function(req, res){
+        return Q().delay(10)
+            .then(function(){
+                throw new Error('Middleware runtime error');
+            });
+    }, function(req, res){});
+
+    user.method('method', function(req, res){
+        return Q().delay(10)
+            .then(function(){
+                throw new Error('Method runtime error');
+            });
+    });
+
+    user.method('empty', function(req, res){
+        // no response sent
+        return Q().delay(10);
+    });
+
+    user.method('err', function(req, res){
+        // no response sent
+        return Q().delay(10)
+            .then(function(){
+                res.error('method error');
+            });
+    });
+
+    [
+        // Resource not found
+        function(){
+            return root.exec('/nores', 'nomethod')
+                .then(function(){ test.ok(false); })
+                .catch(function(error){
+                    test.ok(error instanceof apiman.errors.NotFound);
+                    test.ok(error.system === true);
+                    test.strictEqual(error.message, 'Not found: "/nores:nomethod"');
+                });
+        },
+        // Method not found
+        function(){
+            return root.exec('/user', 'nomethod')
+                .then(function(){ test.ok(false); })
+                .catch(function(error){
+                    test.ok(error instanceof apiman.errors.NotFound);
+                    test.ok(error.system === true);
+                    test.strictEqual(error.message, 'Not found: "/user:nomethod"');
+                });
+        },
+        // Middleware runtime error
+        function(){
+            return root.exec('/user', 'mw')
+                .then(function(){ test.ok(false); })
+                .catch(function(error){
+                    test.ok(error instanceof apiman.errors.MethodError);
+                    test.ok(error.system === true);
+                    test.strictEqual(error.message, 'Method error on "/user:mw": Error: Middleware runtime error');
+                });
+        },
+        // Method runtime error
+        function(){
+            return root.exec('/user', 'method')
+                .then(function(){ test.ok(false); })
+                .catch(function(error){
+                    test.ok(error instanceof apiman.errors.MethodError);
+                    test.ok(error.system === true);
+                    test.strictEqual(error.message, 'Method error on "/user:method": Error: Method runtime error');
+                });
+        },
+        // No response sent
+        function(){
+            return root.exec('/user', 'empty')
+                .then(function(){ test.ok(false); })
+                .catch(function(error){
+                    test.ok(error instanceof apiman.errors.MethodError);
+                    test.ok(error.system === true);
+                    test.strictEqual(error.message, 'Method error on "/user:empty": No response sent');
+                });
+        },
+        // Method error
+        function(){
+            return root.exec('/user', 'err')
+                .then(function(){ test.ok(false); })
+                .catch(function(error){
+                    test.strictEqual(error, 'method error');
+                });
+        }
+    ].reduce(Q.when, Q(1))
+        .catch(function(err){ test.ok(false, err.stack); })
+        .finally(test.done)
+        .done();
 };
 
 /** Endpoint Resource
