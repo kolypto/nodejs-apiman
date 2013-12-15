@@ -286,6 +286,7 @@ exports.testErrors = function(test){
             });
     });
 
+    // Test
     [
         // Resource not found
         function(){
@@ -355,7 +356,44 @@ exports.testErrors = function(test){
  * @param {test|assert} test
  */
 exports.testResourceEndpoint = function(test){
-    test.done();
+    // Resources
+    var root = new apiman.Root(),
+        user = root.resource('/user'),
+        upload = root.resource('/upload')
+        ;
+
+    // Method
+    user.method('load', function(req, res){ res.ok(); });
+    upload.endpointMethod(function(req, res){
+        res.ok({
+            path_tail: req.path_tail,
+            verb: req.verb
+        });
+    });
+
+    // Test
+    [
+        // user.load
+        function(){
+            root.exec('/user', 'load')
+                .then(function(result){
+                    test.strictEqual(result, undefined);
+                });
+        },
+        // upload.load
+        function(){
+            root.exec('/upload/a/b/c', 'loadAnything')
+                .then(function(result){
+                    test.deepEqual(result, {
+                        path_tail: '/a/b/c',
+                        verb: 'loadAnything'
+                    });
+                });
+        },
+    ].reduce(Q.when, Q(1))
+        .catch(function(err){ test.ok(false, err.stack); })
+        .finally(test.done)
+        .done();
 };
 
 /** Controller Resource
