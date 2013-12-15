@@ -132,11 +132,121 @@ exports.testApiMan = function(test){
         .done();
 };
 
-/** Middleware
+/** Request, Middleware
  * @param {test|assert} test
  */
 exports.testMiddleware = function(test){
-    test.done();
+    // Structure
+    var root = new apiman.Root(),
+            user = root.resource('/user'),
+                profile = user.resource('/profile'),
+            news = root.resource('/news')
+        ;
+
+    // Middleware
+    root.use(function(req, res){
+        req.field = 'r';
+    });
+
+    user.use(function(req, res){
+        req.field += 'u';
+    });
+
+    profile.use(function(req, res){
+        return Q().delay(10)
+            .then(function(){
+                req.field += 'p';
+            });
+    });
+
+    news.use(function(req, res){
+        return Q().delay(10)
+            .then(function(){
+                res.ok('response from news mw');
+            });
+    });
+
+    // Methods
+    var method_execcount = 0;
+    var method = function(req, res){
+        method_execcount++;
+        res.ok({
+            // Request fields
+            path: req.path,
+            verb: req.verb,
+            args: req.args,
+            path_arr: req.path_arr,
+            // Custom field
+            field: req.field
+        });
+    };
+
+    root.method('echo', method);
+    user.method('echo', method);
+    profile.method('echo', function(req, res){
+        return Q().delay(10)
+            .then(function(){
+                req.field += 'm';
+        });
+    }, method);
+    news.method('echo', method);
+
+    // Call the methods
+    [
+        // root.echo
+        function(){
+            return root.exec('', 'echo')
+                .then(function(result){
+                    test.deepEqual(result, {
+                        path: '',
+                        verb: 'echo',
+                        args: {},
+                        path_arr: [],
+                        field: 'r'
+                    });
+                });
+        },
+        // user.echo
+        function(){
+            return root.exec('/user', 'echo', { a:1 })
+                .then(function(result){
+                    test.deepEqual(result, {
+                        path: '/user',
+                        verb: 'echo',
+                        args: { a:1 },
+                        path_arr: ['/user'],
+                        field: 'ru'
+                    });
+                });
+        },
+        // profile.echo
+        function(){
+            return root.exec('/user/profile', 'echo')
+                .then(function(result){
+                    test.deepEqual(result, {
+                        path: '/user/profile',
+                        verb: 'echo',
+                        args: {},
+                        path_arr: ['/user', '/profile'],
+                        field: 'rupm'
+                    });
+                });
+        },
+        // news.echo
+        function(){
+            return root.exec('/news', 'echo')
+                .then(function(result){
+                    test.deepEqual(result, 'response from news mw');
+                });
+        },
+        // method_execcount
+        function(){
+            test.strictEqual(method_execcount, 3);
+        }
+    ].reduce(Q.when, Q(1))
+        .catch(function(err){ test.ok(false, err.stack); })
+        .finally(test.done)
+        .done();
 };
 
 /** Error handling

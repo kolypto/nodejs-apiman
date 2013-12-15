@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/kolypto/nodejs-apiman.png?branch=master)](https://travis-ci.org/kolypto/nodejs-apiman)
+
 ApiMan
 ======
 
