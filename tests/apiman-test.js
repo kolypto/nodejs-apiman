@@ -400,5 +400,65 @@ exports.testResourceEndpoint = function(test){
  * @param {test|assert} test
  */
 exports.testResourceController = function(test){
-    test.done();
+    // Resources
+    var root = new apiman.Root(),
+        user = root.resource('/user')
+        ;
+
+    // Methods
+    var UserCtrl = function(something){
+        this.something = something;
+    };
+
+    UserCtrl.prototype.get = function(req, res){
+        res.ok({
+            something: this.something,
+            mw_worked: req.mw_worked,
+            login: 'kolypto'
+        });
+    };
+    UserCtrl.prototype.get.middleware = [
+        function(req, res){
+            req.mw_worked = 'yesss!';
+        }
+    ];
+
+    UserCtrl.prototype.set = function(req, res){
+        res.ok({ ok: true });
+    };
+
+    UserCtrl.prototype._private = function(){};
+
+    user.controllerMethods(new UserCtrl('anything'));
+
+    // Test
+    [
+        // Structure
+        function(){
+            test.deepEqual(_.keys(user.methods), ['get','set']);
+        },
+        // user.get
+        function(){
+            return root.exec('/user', 'get')
+                .then(function(result){
+                    test.deepEqual(result, {
+                        something: 'anything',
+                        mw_worked: 'yesss!',
+                        login: 'kolypto'
+                    });
+                });
+        },
+        // user.set
+        function(){
+            return root.exec('/user', 'set')
+                .then(function(result){
+                    test.deepEqual(result, {
+                        ok: true
+                    });
+                });
+        },
+    ].reduce(Q.when, Q(1))
+        .catch(function(err){ test.ok(false, err.stack); })
+        .finally(test.done)
+        .done();
 };
