@@ -497,12 +497,12 @@ This will make the '/user:get' and '/user:set' methods available.
 
 Bundled Middleware
 ==================
-All bundled middleware comes in `require('apiman').middleware` module.
+All bundled middleware come in the `require('apiman').middleware` module.
 
 Session Middleware
 ------------------
 
-Initializer: `apiman.middleware.session()`
+Initializer: `apiman.middleware.session(options)`
 
 Port of the [connect.session](http://www.senchalabs.org/connect/session.html) middleware which allows you
 to reuse the session Store backends,
@@ -565,8 +565,101 @@ root.exec('/login', 'login', { user: 'kolypto', pass: '1234' }, req)
 Exporting the APIs
 ==================
 
-Express
--------
+In order to expose your APIs to some protocol, you need to implement the ApiMan method caller as a singular endpoint:
+in other words, create a handler which transforms the input into an ApiMan `Resource.exec()` call and formats the output.
+
+You can either [Export The APIs Manually](#exporting-the-apis-manually) or use one of the [Bundled Adapters](#bundled-adapters).
+
+Bundled Adapters
+----------------
+
+Bundled adapters implement the most wanted protocol adapters in a reusable manner.
+
+All bundled middleware come in the `require('apiman').adapters` module.
+
+### Express Adapter
+Express adapter is a middleware maker that catches all incoming requests under a path and handles them with ApiMan methods.
+
+Initializer: `apiman.adapters.express(root, options)`
+
+Arguments:
+
+* `root: Resource|Root`: The resource to serve
+* `options: Object`: Middleware options
+
+    * `prepareRequest: function(req: Object):Request?`: An optional custom function that converts the incoming
+      [Express `req` request](http://expressjs.com/api.html#req.path) into an ApiMan request.
+
+      It should return an object with the additional Request fields. It's also required to return: `path`, `verb`, `args`.
+
+      Default: split the request URI in 2 on ':' and get the `path` & `verb` ; combine request query & body into `args` ;
+      pass the `req.files` as is.
+
+      As a result, you call methods with '/path/to/resource:methodName', the arguments are provided as query params or sent
+      in the request body as JSON.
+
+    * `sessionCookie: { name: String, maxAge: Number }?`: When the [Session Middleware](#session-middleware) is used,
+      you probably want to pass the sessionID through a cookie. To do that, specify the cookie settings here.
+
+      Default: disabled.
+
+      Fields: `name` is the name of the cookie (default: 'sessionID'), `maxAge` is the session expire time in seconds.
+
+      See [express.cookie()](http://expressjs.com/api.html#res.cookie) and (connect.session)[http://www.senchalabs.org/connect/session.html] for more details.
+
+    * `fixSlashes: Boolean?`: Whether to forgive extra slashes in the path. See [Prefix Matching](#prefix-matching).
+
+      Default: true.
+
+    * `sendResult: function(req: Object, res: Object, result: *)?`: An optional custom function that sends the result
+      with [Express `res` response](http://expressjs.com/api.html#res.send).
+
+      Default: sends the result as JSON with HTTP code 200.
+
+      Arguments:
+
+    * `sendError: function(req: Object, res: Object, error: Object, e:*)`: An optional custom function that sends the
+      error with [Express `res` response](http://expressjs.com/api.html#res.send).
+
+      Default: sends the result as JSON `{ error: error }`, with HTTP status code 500 for system errors, 400 for method errors.
+      If the `e` error specifies the `httpcode` field, it overrides the chosen HTTP code.
+
+      Arguments: `req`, `res` are Express request and response ; `e` is the original error; `error` is the prepared
+      error object which is guaranteed to be an object.
+
+      Note: as methods in general can return errors of any type, this adapter casts them to a guaranteed object
+      `{ message: String, system: Boolean }` format.
+
+Example:
+
+```js
+var apiman = require('apiman'),
+    express = require('express')
+    ;
+
+// Resources
+var root = new apiman.Root();
+root.use(apiman.middleware.session()); // ApiMan sessions
+
+// Prepare Express
+var app = express();
+app.use(express.cookieParser()); // enable cookies
+app.use(express.bodyParser()); // enable JSON
+
+// Expose the APIs
+app.use('/api', apiman.adapters.express(root));
+```
+
+For a mature example, see [/tests/adapters-express-test.js](tests/adapters-express-test.js).
+
+
+Exporting The APIs Manually
+---------------------------
+
+This section describes how to export the APIs manually. There are [Bundled Adapters](#bundled-adapters) that
+simplify this part with convenient helpers.
+
+### Express
 Assuming you already have your APIs set up under the `root` Resource, let's export these to HTTP with
 [Express](https://npmjs.org/package/express).
 
@@ -594,7 +687,7 @@ First, you need to decide on the conventions to use for:
 
     Example: use HTTP code 500 by default.
 
-Here's a full solution that supports files, sessions, and handles errors correctly:
+Here's a simple solution:
 
 ```js
 var express = require('express'),
@@ -607,57 +700,29 @@ var app = express();
 
 app.use('/api', function(req, res){
     // Input
-    var _pathmethod = req.path.split(':'),
-        path = _pathmethod[0], // resource path
-        verb = _pathmethod[1], // method name
+    var _pathverb = req.path.split(':'),
+        path = _pathverb[0], // resource path
+        verb = _pathverb[1], // method name
         args = _(req.body).extend(req.query), // combine query & body
-        apireq = { // additional fields for Request
-            files: req.files, // pass files
-            sessionID: req.cookies['sessionID'] // pass session cookie
-        }
+        apireq = {} // additional request fields
         ;
-
-    // Ensure a leading slash, no trailing slash, and collapse multiple slashes
-    path = ('/' + path).replace(/\/+/g, '/').replace(/\/$/, '');
-
     // Execute the method
-    root.exec(path, verb, args, apireq)
-        // Always
-        .finally(function(){
-            // Session cookie
-            if (apireq.session){
-                res.cookie(
-                    'sessionID',
-                    apireq.sessionID,
-                    { path: '/api', maxAge: 60*60*24*31 }
-                );
-            }
-        })
+    root.exec(pathmethod, verb, args, apireq)
         // Handle success
         .then(function(result){
-            res.type('json').send(result);
+            res.type('json').send(result); // send the result
         })
         // Handle error
         .catch(function(err){
-            // Wrap the error object
-            var errResp = {
-                error: _.isObject(err)
-                    ? _.pick(err, 'code', 'message')
-                    : { message: err }
-            };
-
-            // System errors
-            if (err.system)
-                res.type('json').send(err.httpcode || 500, errResp);
-            else
-                res.type('json').send(err.httpcode || 400, errResp);
+            res.type('json').send(err.system? 500 : 400, err); // send the error object
         })
         ;
 });
 ```
 
-socket.io
----------
+For a full solution which supports files, sessions, and handles errors correctly, see [Express Adapter](#express-adapter).
+
+### socket.io
 
 Piece of cake: as socket.io can exchange json objects, you just need a
 handy convention for sending requests and getting responses.
