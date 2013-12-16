@@ -133,6 +133,7 @@ exports.testExpressMiddleware = function(test){
                         error: {
                             path: '/no-resource',
                             method: 'nomethod',
+                            name: 'NotFound',
                             message: 'Not found: "/no-resource:nomethod"',
                             system: true
                         }
