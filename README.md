@@ -554,3 +554,180 @@ root.exec('/login', 'login', { user: 'kolypto', pass: '1234' }, req)
     .done()
     ;
 ```
+
+
+
+
+
+
+Exporting the APIs
+==================
+
+Express
+-------
+Assuming you already have your APIs set up under the `root` Resource, let's export these to HTTP with
+[Express](https://npmjs.org/package/express).
+
+First, you need to decide on the conventions to use for:
+
+1. Method call convention.
+
+    Example: Using URI for Resource paths, method is provided after a colon `:`. the arguments are sent either through
+    the query params or in the request body as a JSON object.
+
+2. Successful responses
+
+    Example: encode the output as JSON, with HTTP code 200.
+
+3. Error responses:
+
+   Example: `{ error: { code: Number, message: String } }`, as JSON.
+   If the Error object has the `httpcode` property, send it as a code.
+
+3. Error responses and HTTP codes
+
+    Example: use HTTP code 400 by default.
+
+4. System Error responses and HTTP codes
+
+    Example: use HTTP code 500 by default.
+
+Here's a full solution that supports files, sessions, and handles errors correctly:
+
+```js
+var express = require('express'),
+    _ = require('lodash'),
+    apiman = require('apiman')
+    ;
+
+var root = new apiman.Root(); // assuming the resources and methods are defined
+
+var app = express();
+
+app.use('/api', function(req, res){
+    // Input
+    var _pathmethod = req.path.split(':'),
+        path = _pathmethod[0], // resource path
+        verb = _pathmethod[1], // method name
+        args = _(req.body).extend(req.query), // combine query & body
+        apireq = { // additional fields for Request
+            files: req.files, // pass files
+            sessionID: req.cookies['sessionID'] // pass session cookie
+        }
+        ;
+
+    // Ensure a leading slash, no trailing slash, and collapse multiple slashes
+    path = ('/' + path).replace(/\/+/g, '/').replace(/\/$/, '');
+
+    // Execute the method
+    root.exec(path, verb, args, apireq)
+        // Always
+        .finally(function(){
+            // Session cookie
+            if (apireq.session){
+                res.cookie(
+                    'sessionID',
+                    apireq.sessionID,
+                    { path: '/api', maxAge: 60*60*24*31 }
+                );
+            }
+        })
+        // Handle success
+        .then(function(result){
+            res.type('json').send(result);
+        })
+        // Handle error
+        .catch(function(err){
+            // Wrap the error object
+            var errResp = {
+                error: _.isObject(err)
+                    ? _.pick(err, 'code', 'message')
+                    : { message: err }
+            };
+
+            // System errors
+            if (err.system)
+                res.type('json').send(err.httpcode || 500, errResp);
+            else
+                res.type('json').send(err.httpcode || 400, errResp);
+        })
+        ;
+});
+```
+
+socket.io
+---------
+
+Piece of cake: as socket.io can exchange json objects, you just need a
+handy convention for sending requests and getting responses.
+
+The only difficulty is that socket.io does not support the request-response
+protocol out of the box, but we can easily overcome that by numbering the
+packets.
+
+Given the above, let's use the following data exchange protocol:
+
+* Request:  `{{ id: Number, path: String, verb: String, args: Object }}`
+* Response: `{{ id: Number, result: Object, error: null }}`
+* Error:    `{{ id: Number, error: { code: Number, message: String } }}`
+
+On the server:
+
+```js
+io.sockets.on('connection', function (socket) {
+    socket.on('api', function (data) {
+        root.exec(data.path, data.verb, data.args)
+            .then(function(result){
+                socket.emit('api.result', {
+                    id: data.id, // send the same id back
+                    result: result,
+                    error: null
+                });
+            })
+            .catch(function(err){
+                socket.emit('api.result', {
+                    id: data.id, // send the same id back
+                    result: null,
+                    error: err
+                });
+            });
+    });
+});
+```
+
+And on the client:
+
+```js
+apicall = function(path, verb, args, callback){
+    var request = {
+        id: apicall._id++, // packet id
+        path: path,
+        verb: verb,
+        args: args || {}
+    };
+    apicall._wait[request.id] = callback;
+    socket.emit('api', request);
+};
+apicall._id=0;
+apicall._wait = {};
+
+// Listen for responses
+socket.on('api.result', function(data){
+    apicall._wait[data.id].apply(null, data.ret);
+});
+
+// Usage
+apicall('/news', 'list', {}, function(err, news){
+    if (err){
+        // error :(
+    } else {
+        // yeehaw!
+    }
+});
+```
+
+Weak points:
+
+1. On reconnect, the response can't be received transparently
+2. The exposed error objects can potentially contain sensitive data like stack traces
+3. Callback-based interface: use promises instead
