@@ -529,6 +529,8 @@ When a session middleware is in effect, the `Request` object gets the following 
 * `req.session: Object`: The persistent session object
 * `req.sessionStore: connect.Store`: The session store backend
 
+The session is only saved if the middleware & the method has had no runtime errors (thrown exceptions)!
+
 Example on how to make 2 requests using a single session:
 
 ```js
@@ -596,8 +598,7 @@ Here's a full solution that supports files, sessions, and handles errors correct
 
 ```js
 var express = require('express'),
-    _ = require('lodash'),
-    apiman = require('apiman')
+    _ = require('lodash')
     ;
 
 var root = new apiman.Root(); // assuming the resources and methods are defined
