@@ -2,6 +2,8 @@
 [![Dependency Status](https://gemnasium.com/kolypto/nodejs-apiman.png)](https://gemnasium.com/kolypto/nodejs-apiman)
 [![Build Status](https://travis-ci.org/kolypto/nodejs-apiman.png?branch=master)](https://travis-ci.org/kolypto/nodejs-apiman)
 
+**PROJECT FROZEN**: Since I'm not doing much NodeJS nowadays, the project is not going to develop in the nearest future!
+
 ApiMan
 ======
 
